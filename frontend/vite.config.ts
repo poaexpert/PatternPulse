@@ -5,9 +5,23 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    // Dev proxy — in production the backend serves the frontend directly
     proxy: {
       '/api': 'http://localhost:3001',
       '/socket.io': { target: 'http://localhost:3001', ws: true }
+    }
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-charts': ['lightweight-charts'],
+          'vendor-socket': ['socket.io-client'],
+        }
+      }
     }
   }
 })

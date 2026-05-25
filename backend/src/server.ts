@@ -78,10 +78,20 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// 404 handler
-app.use((_req, res) => {
-  res.status(404).json({ success: false, message: 'Route not found' });
+// API 404 handler (only applies to /api/* routes)
+app.use('/api', (_req, res) => {
+  res.status(404).json({ success: false, message: 'API route not found' });
 });
+
+// Serve React frontend in production (Railway deployment)
+if (config.NODE_ENV === 'production') {
+  const frontendDist = path.join(__dirname, '../../frontend/dist');
+  app.use(express.static(frontendDist));
+  // Let React Router handle all non-API routes
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+}
 
 // Error handler
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

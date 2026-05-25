@@ -1,0 +1,14 @@
+[phases.setup]
+nixPkgs = ["nodejs_20", "npm-9_x"]
+
+[phases.install]
+cmds = ["npm install"]
+
+[phases.build]
+cmds = [
+  "npm run build --workspace=frontend",
+  "npm run build --workspace=backend"
+]
+
+[start]
+cmd = "node backend/dist/server.js"
