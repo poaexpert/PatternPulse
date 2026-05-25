@@ -1,12 +1,14 @@
-// yahoo-finance2 ships ESM-only; require the ESM build directly via CJS interop.
-// The module exports { __esModule: true, default: yahooFinance } when required.
-// We resolve the path relative to the monorepo root node_modules.
-import path from 'path';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const _yfModule = require(path.join(__dirname, '../../../node_modules/yahoo-finance2/esm/src/index.js'));
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const yahooFinance: import('yahoo-finance2').YahooFinance =
-  (_yfModule.default?.default ?? _yfModule.default ?? _yfModule) as import('yahoo-finance2').YahooFinance;
+// yahoo-finance2 v2.x is ESM-only — must use dynamic import() from CommonJS.
+// Lazy-load and cache the module on first use.
+let _yahooFinance: any = null;
+
+async function getYahooFinance(): Promise<any> {
+  if (!_yahooFinance) {
+    const mod = await import('yahoo-finance2');
+    _yahooFinance = mod.default ?? mod;
+  }
+  return _yahooFinance;
+}
 
 import { log } from '../utils/logger';
 import type { HistoricalResult } from 'yahoo-finance2';
@@ -45,7 +47,8 @@ function sleep(ms: number): Promise<void> {
 // Fetch a single quote safely
 async function fetchSingleQuote(symbol: string): Promise<QuoteData | null> {
   try {
-    const result = await yahooFinance.quote(symbol);
+    const yf = await getYahooFinance();
+    const result = await yf.quote(symbol);
     if (!result) return null;
 
     const price = result.regularMarketPrice ?? 0;
@@ -122,7 +125,8 @@ export async function fetchHistoricalData(
     period1.setDate(period1.getDate() - daysBack);
     const period2 = new Date();
 
-    const result = await yahooFinance.historical(symbol, {
+    const yf = await getYahooFinance();
+    const result = await yf.historical(symbol, {
       period1,
       period2,
       interval: '1d',
@@ -164,7 +168,8 @@ export async function fetchMarketOverview(): Promise<
 
   for (const symbol of symbols) {
     try {
-      const quote = await yahooFinance.quote(symbol);
+      const yf = await getYahooFinance();
+      const quote = await yf.quote(symbol);
       if (quote) {
         results.push({
           symbol: symbol === '^VIX' ? 'VIX' : quote.symbol || symbol,
