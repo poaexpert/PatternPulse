@@ -1,0 +1,198 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #0a0b0e; }
+::-webkit-scrollbar-thumb { background: #1e2028; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #2d303e; }
+
+/* Trading terminal font */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #0a0b0e;
+  color: #e2e8f0;
+  overflow-x: hidden;
+}
+
+/* Scan result card animations */
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  50% { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2); }
+}
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2); }
+}
+
+.new-signal-long { animation: pulse-green 1s ease-in-out 3; }
+.new-signal-short { animation: pulse-red 1s ease-in-out 3; }
+
+/* Ticker tape */
+@keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.ticker-tape { animation: ticker 30s linear infinite; }
+.ticker-tape:hover { animation-play-state: paused; }
+
+/* Number flash animations */
+@keyframes flash-green { from { color: #10b981; } to { color: inherit; } }
+@keyframes flash-red { from { color: #ef4444; } to { color: inherit; } }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Strength bar */
+.strength-bar {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  letter-spacing: -0.05em;
+}
+
+/* Trading chart container */
+.chart-container {
+  background: #111318;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+/* Modal overlay */
+.modal-overlay {
+  animation: fadeIn 0.15s ease-in-out;
+}
+
+.modal-content {
+  animation: slideUp 0.2s ease-out;
+}
+
+/* Sidebar transitions */
+.nav-item {
+  transition: all 0.15s ease;
+}
+
+/* Price flash */
+.price-up {
+  animation: flash-green 0.5s ease-out;
+}
+.price-down {
+  animation: flash-red 0.5s ease-out;
+}
+
+/* Loading skeleton */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #111318 25%, #1a1d26 50%, #111318 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Table styles */
+.data-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #0a0b0e;
+}
+
+/* Custom range input */
+input[type="range"] {
+  -webkit-appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: #1e2028;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #06b6d4;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  background: #0891b2;
+}
+
+/* Toggle switch */
+.toggle-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+.toggle-track {
+  width: 36px;
+  height: 20px;
+  background: #1e2028;
+  border-radius: 10px;
+  transition: background 0.2s;
+  position: relative;
+}
+.toggle-switch input:checked + .toggle-track {
+  background: #06b6d4;
+}
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #e2e8f0;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+.toggle-switch input:checked ~ .toggle-track .toggle-thumb,
+.toggle-switch input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(16px);
+}
+
+/* Tooltip */
+.tooltip {
+  position: relative;
+}
+.tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e2028;
+  color: #e2e8f0;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 100;
+}
+.tooltip:hover::after {
+  opacity: 1;
+}

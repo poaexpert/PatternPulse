@@ -1,5 +1,15 @@
-import yahooFinance from 'yahoo-finance2';
+// yahoo-finance2 ships ESM-only; require the ESM build directly via CJS interop.
+// The module exports { __esModule: true, default: yahooFinance } when required.
+// We resolve the path relative to the monorepo root node_modules.
+import path from 'path';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const _yfModule = require(path.join(__dirname, '../../../node_modules/yahoo-finance2/esm/src/index.js'));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const yahooFinance: import('yahoo-finance2').YahooFinance =
+  (_yfModule.default?.default ?? _yfModule.default ?? _yfModule) as import('yahoo-finance2').YahooFinance;
+
 import { log } from '../utils/logger';
+import type { HistoricalResult } from 'yahoo-finance2';
 
 export interface QuoteData {
   symbol: string;
@@ -122,14 +132,14 @@ export async function fetchHistoricalData(
 
     return result
       .filter(
-        (bar) =>
+        (bar: HistoricalResult) =>
           bar.open !== undefined &&
           bar.high !== undefined &&
           bar.low !== undefined &&
           bar.close !== undefined &&
           bar.volume !== undefined
       )
-      .map((bar) => ({
+      .map((bar: HistoricalResult) => ({
         date: bar.date,
         open: bar.open as number,
         high: bar.high as number,

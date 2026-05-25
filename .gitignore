@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+*.local
+backend/data/store.json
+backend/data/*.json
+package-lock.json
