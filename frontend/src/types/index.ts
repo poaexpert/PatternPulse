@@ -116,7 +116,65 @@ export interface MarketStatus {
   vixLevel: number;
 }
 
-export type ActiveView = 'dashboard' | 'scanner' | 'alerts' | 'watchlist' | 'settings';
+export type ActiveView = 'dashboard' | 'scanner' | 'alerts' | 'watchlist' | 'settings' | 'ai-analysis' | 'futures';
+
+export interface ChartAnalysis {
+  trend: {
+    direction: 'UP' | 'DOWN' | 'SIDEWAYS';
+    strength: 'STRONG' | 'MODERATE' | 'WEAK';
+    structure: string;
+  };
+  topBottomSignal: {
+    type: 'TOP' | 'BOTTOM' | 'NONE';
+    confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+    reasoning: string;
+  };
+  keyLevels: {
+    support: number[];
+    resistance: number[];
+    keyLevel: number | null;
+  };
+  patterns: {
+    name: string;
+    implication: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+    completion: 'COMPLETE' | 'FORMING' | 'PARTIAL';
+    target: number | null;
+  }[];
+  swingSetup: {
+    exists: boolean;
+    direction: 'LONG' | 'SHORT' | 'NONE';
+    entry: number | null;
+    stopLoss: number | null;
+    target1: number | null;
+    target2: number | null;
+    riskReward: number | null;
+    timeframe: string;
+    description: string;
+  };
+  indicators: {
+    rsiSignal: string;
+    macdSignal: string;
+    volumeSignal: string;
+    summary: string;
+  };
+  signalStrength: number;
+  summary: string;
+  warnings: string[];
+  analysedAt: string;
+  source: 'image' | 'data';
+  symbol?: string;
+  id?: string;
+}
+
+export interface FuturesQuote {
+  symbol: string;
+  name: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  volume: number;
+  category: 'INDEX' | 'COMMODITY' | 'BOND' | 'CURRENCY' | 'CRYPTO' | 'VOLATILITY';
+}
 
 export interface CandleData {
   time: number;

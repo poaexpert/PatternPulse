@@ -9,6 +9,7 @@ import type {
   Direction,
   ScanType,
   AlertHistoryItem,
+  ChartAnalysis,
 } from '../types';
 
 interface ScanFilter {
@@ -39,6 +40,9 @@ interface AppState {
   // Settings
   notificationSettings: NotificationSettings | null;
 
+  // AI Analysis
+  analysisHistory: ChartAnalysis[];
+
   // UI
   activeView: ActiveView;
   selectedSymbol: string | null;
@@ -57,6 +61,8 @@ interface AppState {
   removeFromWatchlist: (symbol: string) => void;
   updateWatchlistItem: (symbol: string, updates: Partial<WatchlistItem>) => void;
   setNotificationSettings: (s: NotificationSettings) => void;
+  setAnalysisHistory: (history: ChartAnalysis[]) => void;
+  addAnalysis: (analysis: ChartAnalysis) => void;
   setActiveView: (v: ActiveView) => void;
   setSelectedSymbol: (s: string | null) => void;
   setIsInitialLoading: (v: boolean) => void;
@@ -84,6 +90,7 @@ export const useStore = create<AppState>((set, get) => ({
   alertHistory: [],
   watchlist: [],
   notificationSettings: null,
+  analysisHistory: [],
   activeView: 'dashboard',
   selectedSymbol: null,
   isInitialLoading: true,
@@ -129,6 +136,13 @@ export const useStore = create<AppState>((set, get) => ({
     })),
 
   setNotificationSettings: (s) => set({ notificationSettings: s }),
+
+  setAnalysisHistory: (history) => set({ analysisHistory: history }),
+
+  addAnalysis: (analysis) =>
+    set((state) => ({
+      analysisHistory: [analysis, ...state.analysisHistory].slice(0, 50),
+    })),
 
   setActiveView: (v) => set({ activeView: v }),
 

@@ -54,6 +54,24 @@ function SettingsIcon() {
   );
 }
 
+function BrainIcon() {
+  return (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-1.07-4.54A3 3 0 0 1 4.6 9.16a2.5 2.5 0 0 1 .3-4.67A2.5 2.5 0 0 1 9.5 2z"/>
+      <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 1.07-4.54A3 3 0 0 0 19.4 9.16a2.5 2.5 0 0 0-.3-4.67A2.5 2.5 0 0 0 14.5 2z"/>
+    </svg>
+  );
+}
+
+function TrendingUpIcon() {
+  return (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+      <polyline points="17 6 23 6 23 12"/>
+    </svg>
+  );
+}
+
 export default function Sidebar() {
   const { activeView, setActiveView, alerts, watchlist, marketStatus } = useStore();
 
@@ -65,6 +83,8 @@ export default function Sidebar() {
     { id: 'scanner', label: 'Scanner', icon: <ScannerIcon /> },
     { id: 'alerts', label: 'Alerts', icon: <BellIcon /> },
     { id: 'watchlist', label: 'Watchlist', icon: <StarIcon /> },
+    { id: 'ai-analysis', label: 'AI Analysis', icon: <BrainIcon /> },
+    { id: 'futures', label: 'Futures', icon: <TrendingUpIcon /> },
     { id: 'settings', label: 'Settings', icon: <SettingsIcon /> },
   ];
 

@@ -9,6 +9,8 @@ import ScannerPanel from './components/Scanner/ScannerPanel';
 import AlertPanel from './components/Alerts/AlertPanel';
 import WatchlistPanel from './components/Watchlist/WatchlistPanel';
 import NotificationSettings from './components/Settings/NotificationSettings';
+import AIAnalysisPanel from './components/AIAnalysis/AIAnalysisPanel';
+import FuturesPanel from './components/Futures/FuturesPanel';
 import type { ScanResult, Alert, WatchlistItem, NotificationSettings as NS, MarketStatus } from './types';
 
 function LoadingScreen() {
@@ -121,6 +123,8 @@ export default function App() {
       case 'alerts': return <AlertPanel />;
       case 'watchlist': return <WatchlistPanel />;
       case 'settings': return <NotificationSettings />;
+      case 'ai-analysis': return <AIAnalysisPanel />;
+      case 'futures': return <FuturesPanel />;
       default: return <Dashboard />;
     }
   };
