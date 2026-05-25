@@ -11,7 +11,7 @@ import WatchlistPanel from './components/Watchlist/WatchlistPanel';
 import NotificationSettings from './components/Settings/NotificationSettings';
 import AIAnalysisPanel from './components/AIAnalysis/AIAnalysisPanel';
 import FuturesPanel from './components/Futures/FuturesPanel';
-import type { ScanResult, Alert, WatchlistItem, NotificationSettings as NS, MarketStatus } from './types';
+import type { ScanResult, Alert, WatchlistItem, NotificationSettings as NS } from './types';
 
 function LoadingScreen() {
   return (
@@ -55,58 +55,75 @@ export default function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Request browser notification permission
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {});
     }
 
-    // Fetch all initial data in parallel
     const fetchInitialData = async () => {
-      try {
-        const [
-          scanRes,
-          alertsRes,
-          watchlistRes,
-          settingsRes,
-          marketRes,
-        ] = await Promise.allSettled([
-          axios.get<ScanResult[]>('/api/scanner/results'),
-          axios.get<Alert[]>('/api/alerts'),
-          axios.get<WatchlistItem[]>('/api/watchlist'),
-          axios.get<NS>('/api/notifications/settings'),
-          axios.get<MarketStatus>('/api/market/overview'),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const unwrap = (data: any, key: string) => data?.[key] ?? data ?? [];
+
+      const [scanRes, alertsRes, watchlistRes, settingsRes, marketRes] =
+        await Promise.allSettled([
+          axios.get('/api/scanner/results'),
+          axios.get('/api/alerts'),
+          axios.get('/api/watchlist'),
+          axios.get('/api/notifications/settings'),
+          axios.get('/api/market/overview'),
         ]);
 
-        if (scanRes.status === 'fulfilled') {
+      // Scanner results: { success, count, results: ScanResult[] }
+      if (scanRes.status === 'fulfilled') {
+        try {
+          const results: ScanResult[] = unwrap(scanRes.value.data, 'results');
           setScanResults(
-            scanRes.value.data.map((r) => ({
-              ...r,
-              timestamp: new Date(r.timestamp),
-            }))
+            Array.isArray(results)
+              ? results.map((r) => ({ ...r, timestamp: new Date(r.timestamp) }))
+              : []
           );
-        }
-
-        if (alertsRes.status === 'fulfilled') {
-          setAlerts(alertsRes.value.data);
-        }
-
-        if (watchlistRes.status === 'fulfilled') {
-          setWatchlist(watchlistRes.value.data);
-        }
-
-        if (settingsRes.status === 'fulfilled') {
-          setNotificationSettings(settingsRes.value.data);
-        }
-
-        if (marketRes.status === 'fulfilled') {
-          setMarketStatus(marketRes.value.data);
-        }
-      } catch (err) {
-        setLoadError('Failed to connect to backend. Running in offline mode.');
-        console.warn('[App] Initial data fetch failed:', err);
-      } finally {
-        setIsInitialLoading(false);
+        } catch { /* non-fatal */ }
       }
+
+      // Alerts: { success, count, alerts: Alert[] }
+      if (alertsRes.status === 'fulfilled') {
+        try {
+          const alerts: Alert[] = unwrap(alertsRes.value.data, 'alerts');
+          setAlerts(Array.isArray(alerts) ? alerts : []);
+        } catch { /* non-fatal */ }
+      }
+
+      // Watchlist: { success, count, watchlist: WatchlistItem[] }
+      if (watchlistRes.status === 'fulfilled') {
+        try {
+          const watchlist: WatchlistItem[] = unwrap(watchlistRes.value.data, 'watchlist');
+          setWatchlist(Array.isArray(watchlist) ? watchlist : []);
+        } catch { /* non-fatal */ }
+      }
+
+      // Settings: { success, settings: NotificationSettings }
+      if (settingsRes.status === 'fulfilled') {
+        try {
+          const settings: NS = unwrap(settingsRes.value.data, 'settings');
+          if (settings && typeof settings === 'object') setNotificationSettings(settings);
+        } catch { /* non-fatal */ }
+      }
+
+      // Market: { success, overview: { spyChange, qqqChange, ... } }
+      if (marketRes.status === 'fulfilled') {
+        try {
+          const overview = unwrap(marketRes.value.data, 'overview');
+          if (overview && typeof overview === 'object') setMarketStatus(overview);
+        } catch { /* non-fatal */ }
+      }
+
+      // Only show error if ALL requests failed (true offline)
+      const allFailed = [scanRes, alertsRes, watchlistRes, settingsRes, marketRes]
+        .every((r) => r.status === 'rejected');
+      if (allFailed) {
+        setLoadError('Failed to connect to backend. Running in offline mode.');
+      }
+
+      setIsInitialLoading(false);
     };
 
     fetchInitialData();
@@ -118,14 +135,14 @@ export default function App() {
 
   const renderView = () => {
     switch (activeView) {
-      case 'dashboard': return <Dashboard />;
-      case 'scanner': return <ScannerPanel />;
-      case 'alerts': return <AlertPanel />;
-      case 'watchlist': return <WatchlistPanel />;
-      case 'settings': return <NotificationSettings />;
-      case 'ai-analysis': return <AIAnalysisPanel />;
-      case 'futures': return <FuturesPanel />;
-      default: return <Dashboard />;
+      case 'dashboard':    return <Dashboard />;
+      case 'scanner':      return <ScannerPanel />;
+      case 'alerts':       return <AlertPanel />;
+      case 'watchlist':    return <WatchlistPanel />;
+      case 'settings':     return <NotificationSettings />;
+      case 'ai-analysis':  return <AIAnalysisPanel />;
+      case 'futures':      return <FuturesPanel />;
+      default:             return <Dashboard />;
     }
   };
 
@@ -137,12 +154,7 @@ export default function App() {
         {loadError && (
           <div className="bg-terminal-yellow/10 border-b border-terminal-yellow/30 px-4 py-2 text-terminal-yellow text-xs flex items-center justify-between">
             <span>{loadError}</span>
-            <button
-              onClick={() => setLoadError(null)}
-              className="text-terminal-yellow/60 hover:text-terminal-yellow ml-4"
-            >
-              ✕
-            </button>
+            <button onClick={() => setLoadError(null)} className="text-terminal-yellow/60 hover:text-terminal-yellow ml-4">✕</button>
           </div>
         )}
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
