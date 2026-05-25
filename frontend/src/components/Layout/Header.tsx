@@ -15,7 +15,7 @@ const VIEW_META: Record<ActiveView, ViewMeta> = {
   alerts: { title: 'Alerts', subtitle: 'Price & scan alerts management' },
   watchlist: { title: 'Watchlist', subtitle: 'Tracked symbols & positions' },
   settings: { title: 'Settings', subtitle: 'Notifications & configuration' },
-  'ai-analysis': { title: 'AI Analysis', subtitle: 'Claude-powered chart analysis' },
+  'ai-analysis': { title: 'Technical Analysis', subtitle: 'Free technical analysis via Yahoo Finance' },
   futures: { title: 'Futures Markets', subtitle: 'Live futures quotes & monitoring' },
 };
 

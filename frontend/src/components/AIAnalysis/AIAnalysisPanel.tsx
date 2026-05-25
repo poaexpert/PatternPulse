@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
 import axios from 'axios';
-import ImageUpload from './ImageUpload';
 import AnalysisResults from './AnalysisResults';
 import { useStore } from '../../store';
 import type { ChartAnalysis } from '../../types';
@@ -8,14 +7,9 @@ import type { ChartAnalysis } from '../../types';
 function friendlyApiError(err: unknown): string {
   if (!axios.isAxiosError(err)) return 'Analysis failed. Please try again.';
   const body = err.response?.data;
-  const raw: string = body?.error?.message ?? body?.message ?? err.message ?? '';
-  if (raw.toLowerCase().includes('credit') || raw.toLowerCase().includes('balance') || err.response?.status === 400) {
-    return '💳 Your Anthropic account has no credits. Go to console.anthropic.com → Billing → Add credits (≈$5 = hundreds of analyses).';
-  }
-  if (err.response?.status === 503) {
-    return '⚙️ AI analysis is not configured. Add ANTHROPIC_API_KEY to your Railway environment variables.';
-  }
-  return raw || 'Analysis failed. Please try again.';
+  const msg: string = body?.message ?? err.message ?? 'Unknown error';
+  if (err.response?.status === 422) return `Not enough data: ${msg}`;
+  return msg || 'Analysis failed. Please try again.';
 }
 
 function TypingDots() {
@@ -41,9 +35,9 @@ function EmptyState() {
           <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 1.07-4.54A3 3 0 0 0 19.4 9.16a2.5 2.5 0 0 0-.3-4.67A2.5 2.5 0 0 0 14.5 2z"/>
         </svg>
       </div>
-      <p className="text-terminal-text-primary font-semibold mb-1">AI Chart Analysis</p>
+      <p className="text-terminal-text-primary font-semibold mb-1">Technical Analysis</p>
       <p className="text-terminal-text-secondary text-sm leading-relaxed max-w-xs">
-        Upload a chart screenshot or enter a symbol to get AI-powered technical analysis
+        Enter a ticker symbol to get free technical analysis powered by Yahoo Finance data
       </p>
     </div>
   );
@@ -115,8 +109,6 @@ function HistoryCard({ item, onClick }: HistoryCardProps) {
 export default function AIAnalysisPanel() {
   const { analysisHistory, addAnalysis, setAnalysisHistory } = useStore();
 
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | undefined>();
   const [context, setContext] = useState('');
   const [symbolInput, setSymbolInput] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -143,36 +135,6 @@ export default function AIAnalysisPanel() {
   useState(() => {
     fetchHistory();
   });
-
-  const handleImageSelect = useCallback((file: File, preview: string) => {
-    setSelectedFile(file);
-    setImagePreview(preview);
-    setError(null);
-  }, []);
-
-  const analyzeImage = async () => {
-    if (!selectedFile) {
-      setError('Please upload a chart image first.');
-      return;
-    }
-    setIsAnalyzing(true);
-    setError(null);
-    try {
-      const formData = new FormData();
-      formData.append('image', selectedFile);
-      if (context.trim()) formData.append('context', context.trim());
-
-      const res = await axios.post<ChartAnalysis>('/api/analysis/image', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      setCurrentAnalysis(res.data);
-      addAnalysis(res.data);
-    } catch (err: unknown) {
-      setError(friendlyApiError(err));
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
 
   const analyzeSymbol = async () => {
     const sym = symbolInput.trim().toUpperCase();
@@ -202,63 +164,19 @@ export default function AIAnalysisPanel() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-terminal-text-primary">AI Chart Analysis</h1>
-          <p className="text-xs text-terminal-text-secondary mt-0.5">Technical analysis powered by Claude</p>
+          <h1 className="text-xl font-bold text-terminal-text-primary">Technical Analysis</h1>
+          <p className="text-xs text-terminal-text-secondary mt-0.5">Free · Powered by Yahoo Finance + Technical Indicators</p>
         </div>
-        <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-terminal-purple/15 text-terminal-purple border border-terminal-purple/25">
-          Powered by Claude claude-opus-4-7
+        <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-terminal-cyan/15 text-terminal-cyan border border-terminal-cyan/25">
+          Free · No API Key
         </span>
       </div>
 
       {/* Main 2-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        {/* Left — Upload Panel */}
+        {/* Left — Input Panel */}
         <div className="bg-terminal-card border border-terminal-border rounded-xl p-4 space-y-4">
-          <h2 className="text-sm font-semibold text-terminal-text-primary">Upload Chart</h2>
-
-          <ImageUpload onImageSelect={handleImageSelect} isAnalyzing={isAnalyzing} />
-
-          {/* Context textarea */}
-          <div>
-            <label className="text-[11px] font-semibold text-terminal-text-secondary uppercase tracking-wider block mb-1.5">
-              Context (optional)
-            </label>
-            <textarea
-              value={context}
-              onChange={(e) => setContext(e.target.value)}
-              placeholder="Symbol, timeframe, what you're watching for…"
-              rows={2}
-              className="w-full bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2 text-sm text-terminal-text-primary placeholder-terminal-text-secondary/50 resize-none focus:outline-none focus:border-terminal-cyan/50 transition-colors"
-            />
-          </div>
-
-          {/* Analyze screenshot button */}
-          <button
-            onClick={analyzeImage}
-            disabled={isAnalyzing || !selectedFile}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-terminal-cyan text-terminal-bg font-semibold text-sm transition-all hover:bg-terminal-cyan/90 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {isAnalyzing ? (
-              <>
-                <span>Claude is analyzing your chart</span>
-                <TypingDots />
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-                </svg>
-                Analyze Screenshot
-              </>
-            )}
-          </button>
-
-          {/* Divider */}
-          <div className="flex items-center gap-2">
-            <div className="flex-1 h-px bg-terminal-border" />
-            <span className="text-[11px] text-terminal-text-secondary">or analyze by symbol</span>
-            <div className="flex-1 h-px bg-terminal-border" />
-          </div>
+          <h2 className="text-sm font-semibold text-terminal-text-primary">Analyze Symbol</h2>
 
           {/* Symbol input + button */}
           <div className="flex gap-2">
@@ -273,10 +191,31 @@ export default function AIAnalysisPanel() {
             <button
               onClick={analyzeSymbol}
               disabled={isAnalyzing || !symbolInput.trim()}
-              className="px-4 py-2 rounded-lg bg-terminal-purple text-white font-semibold text-sm transition-all hover:bg-terminal-purple/90 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+              className="px-4 py-2 rounded-lg bg-terminal-cyan text-terminal-bg font-semibold text-sm transition-all hover:bg-terminal-cyan/90 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
             >
-              Analyze Symbol
+              {isAnalyzing ? (
+                <span className="flex items-center gap-1">
+                  Analyzing
+                  <TypingDots />
+                </span>
+              ) : (
+                'Analyze'
+              )}
             </button>
+          </div>
+
+          {/* Context textarea */}
+          <div>
+            <label className="text-[11px] font-semibold text-terminal-text-secondary uppercase tracking-wider block mb-1.5">
+              Notes (optional)
+            </label>
+            <textarea
+              value={context}
+              onChange={(e) => setContext(e.target.value)}
+              placeholder="Timeframe, what you're watching for…"
+              rows={2}
+              className="w-full bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2 text-sm text-terminal-text-primary placeholder-terminal-text-secondary/50 resize-none focus:outline-none focus:border-terminal-cyan/50 transition-colors"
+            />
           </div>
 
           {/* Error */}
@@ -291,7 +230,7 @@ export default function AIAnalysisPanel() {
         {/* Right — Results Panel */}
         <div className="bg-terminal-card border border-terminal-border rounded-xl p-4 min-h-64">
           {currentAnalysis ? (
-            <AnalysisResults analysis={currentAnalysis} imagePreview={imagePreview} />
+            <AnalysisResults analysis={currentAnalysis} />
           ) : (
             <EmptyState />
           )}
