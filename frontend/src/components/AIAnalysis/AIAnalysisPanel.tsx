@@ -5,6 +5,19 @@ import AnalysisResults from './AnalysisResults';
 import { useStore } from '../../store';
 import type { ChartAnalysis } from '../../types';
 
+function friendlyApiError(err: unknown): string {
+  if (!axios.isAxiosError(err)) return 'Analysis failed. Please try again.';
+  const body = err.response?.data;
+  const raw: string = body?.error?.message ?? body?.message ?? err.message ?? '';
+  if (raw.toLowerCase().includes('credit') || raw.toLowerCase().includes('balance') || err.response?.status === 400) {
+    return '💳 Your Anthropic account has no credits. Go to console.anthropic.com → Billing → Add credits (≈$5 = hundreds of analyses).';
+  }
+  if (err.response?.status === 503) {
+    return '⚙️ AI analysis is not configured. Add ANTHROPIC_API_KEY to your Railway environment variables.';
+  }
+  return raw || 'Analysis failed. Please try again.';
+}
+
 function TypingDots() {
   return (
     <span className="inline-flex items-center gap-1 ml-1">
@@ -155,11 +168,7 @@ export default function AIAnalysisPanel() {
       setCurrentAnalysis(res.data);
       addAnalysis(res.data);
     } catch (err: unknown) {
-      const message =
-        axios.isAxiosError(err)
-          ? err.response?.data?.message ?? err.message
-          : 'Analysis failed. Please try again.';
-      setError(message);
+      setError(friendlyApiError(err));
     } finally {
       setIsAnalyzing(false);
     }
@@ -180,11 +189,7 @@ export default function AIAnalysisPanel() {
       setCurrentAnalysis(res.data);
       addAnalysis(res.data);
     } catch (err: unknown) {
-      const message =
-        axios.isAxiosError(err)
-          ? err.response?.data?.message ?? err.message
-          : `Could not analyze ${sym}. Please try again.`;
-      setError(message);
+      setError(friendlyApiError(err));
     } finally {
       setIsAnalyzing(false);
     }
