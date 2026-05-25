@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useStore } from '../../store';
 import { useSocketEmit } from '../../hooks/useSocket';
-import { formatPercent, getChangeColor } from '../../utils/formatters';
+import { getChangeColor } from '../../utils/formatters';
 import type { ActiveView } from '../../types';
 
 interface ViewMeta {

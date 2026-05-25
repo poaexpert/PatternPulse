@@ -13,7 +13,6 @@ export function useSocket(): void {
     setLastScanTime,
     addAlertHistory,
     setMarketStatus,
-    alertHistory,
   } = useStore();
 
   useEffect(() => {

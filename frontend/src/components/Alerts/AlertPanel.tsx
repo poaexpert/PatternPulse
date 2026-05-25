@@ -3,8 +3,6 @@ import axios from 'axios';
 import { useStore } from '../../store';
 import {
   formatPrice,
-  formatPercent,
-  getChangeColor,
   timeAgo,
   getConditionLabel,
 } from '../../utils/formatters';
@@ -350,7 +348,7 @@ function AlertTimeline() {
 export default function AlertPanel() {
   const { alerts, toggleAlert, removeAlert } = useStore();
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [, setDeleteId] = useState<string | null>(null);
 
   const activeAlerts = alerts.filter((a) => a.active);
   const inactiveAlerts = alerts.filter((a) => !a.active);

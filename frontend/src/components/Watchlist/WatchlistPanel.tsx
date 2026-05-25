@@ -317,11 +317,6 @@ export default function WatchlistPanel() {
     }
   });
 
-  const totalValue = watchlist.reduce((sum, w) => {
-    const price = quotes[w.symbol]?.price ?? 0;
-    return sum + price;
-  }, 0);
-
   const gainers = watchlist.filter((w) => (quotes[w.symbol]?.changePercent ?? 0) > 0).length;
   const losers = watchlist.filter((w) => (quotes[w.symbol]?.changePercent ?? 0) < 0).length;
 

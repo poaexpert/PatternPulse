@@ -4,7 +4,6 @@ import {
   formatPercent,
   formatVolume,
   formatPrice,
-  formatChange,
   getChangeColor,
   timeAgo,
   formatScanType,
@@ -99,7 +98,6 @@ function StatsRow() {
 function MiniStockCard({ result, onClick }: { result: ScanResult; onClick: () => void }) {
   const isLong = result.direction === 'LONG';
   const borderColor = isLong ? 'border-terminal-green/30' : 'border-terminal-red/30';
-  const directionColor = isLong ? 'text-terminal-green' : 'text-terminal-red';
   const changeColor = getChangeColor(result.changePercent);
 
   return (

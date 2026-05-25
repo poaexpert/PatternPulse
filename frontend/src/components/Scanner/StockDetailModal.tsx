@@ -9,12 +9,11 @@ import {
   getChangeColor,
   getStrengthColor,
   formatScanType,
-  formatStrengthBar,
   timeAgo,
   getRsiColor,
   getMacdColor,
 } from '../../utils/formatters';
-import type { ScanResult, Alert } from '../../types';
+import type { Alert } from '../../types';
 import axios from 'axios';
 
 interface StockDetailModalProps {
