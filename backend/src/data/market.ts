@@ -1,15 +1,19 @@
-// yahoo-finance2 ships ESM-only; require the ESM build directly via CJS interop.
-// The module exports { __esModule: true, default: yahooFinance } when required.
-// We resolve the path relative to the monorepo root node_modules.
-import path from 'path';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const _yfModule = require(path.join(__dirname, '../../../node_modules/yahoo-finance2/esm/src/index.js'));
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const yahooFinance: import('yahoo-finance2').YahooFinance =
-  (_yfModule.default?.default ?? _yfModule.default ?? _yfModule) as import('yahoo-finance2').YahooFinance;
+// Market data via Yahoo Finance JSON API directly (axios) — no SDK, no ESM issues.
+import axios from 'axios';
+import { logError } from '../utils/logger';
 
-import { log } from '../utils/logger';
-import type { HistoricalResult } from 'yahoo-finance2';
+const YF_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Accept': 'application/json',
+  'Accept-Language': 'en-US,en;q=0.9',
+};
+
+const QUOTE_URL = 'https://query1.finance.yahoo.com/v7/finance/quote';
+const CHART_URL = 'https://query1.finance.yahoo.com/v8/finance/chart';
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 export interface QuoteData {
   symbol: string;
@@ -37,147 +41,97 @@ export interface OHLCVBar {
   volume: number;
 }
 
-// Sleep helper
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapQuote(q: any, fallbackSymbol: string): QuoteData {
+  const price = q.regularMarketPrice ?? 0;
+  const previousClose = q.regularMarketPreviousClose ?? price;
+  return {
+    symbol: q.symbol ?? fallbackSymbol,
+    name: q.shortName ?? q.longName ?? fallbackSymbol,
+    price,
+    previousClose,
+    change: q.regularMarketChange ?? price - previousClose,
+    changePercent: q.regularMarketChangePercent ?? 0,
+    volume: q.regularMarketVolume ?? 0,
+    avgVolume: q.averageDailyVolume10Day ?? q.averageDailyVolume3Month ?? 0,
+    marketCap: q.marketCap,
+    high52Week: q.fiftyTwoWeekHigh,
+    low52Week: q.fiftyTwoWeekLow,
+    preMarketPrice: q.preMarketPrice,
+    preMarketChange: q.preMarketChange,
+    preMarketChangePercent: q.preMarketChangePercent,
+  };
 }
 
-// Fetch a single quote safely
-async function fetchSingleQuote(symbol: string): Promise<QuoteData | null> {
+async function fetchQuoteBatch(symbols: string[]): Promise<QuoteData[]> {
   try {
-    const result = await yahooFinance.quote(symbol);
-    if (!result) return null;
-
-    const price = result.regularMarketPrice ?? 0;
-    const previousClose = result.regularMarketPreviousClose ?? price;
-    const change = result.regularMarketChange ?? price - previousClose;
-    const changePercent = result.regularMarketChangePercent ?? 0;
-
-    return {
-      symbol: result.symbol || symbol,
-      name: result.longName || result.shortName || symbol,
-      price,
-      previousClose,
-      change,
-      changePercent,
-      volume: result.regularMarketVolume ?? 0,
-      avgVolume: result.averageDailyVolume3Month ?? result.averageDailyVolume10Day ?? 0,
-      marketCap: result.marketCap,
-      high52Week: result.fiftyTwoWeekHigh,
-      low52Week: result.fiftyTwoWeekLow,
-      preMarketPrice: result.preMarketPrice,
-      preMarketChange: result.preMarketChange,
-      preMarketChangePercent: result.preMarketChangePercent,
-    };
+    const url = `${QUOTE_URL}?symbols=${symbols.map(encodeURIComponent).join(',')}`;
+    const res = await axios.get(url, { headers: YF_HEADERS, timeout: 12000 });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const results: any[] = res.data?.quoteResponse?.result ?? [];
+    return results.map((q) => mapQuote(q, q.symbol));
   } catch (err) {
-    // Suppress per-symbol errors to avoid log spam
-    return null;
+    logError(`Quote batch failed for [${symbols.slice(0, 3).join(',')}...]`, err);
+    return [];
   }
 }
 
-/**
- * Fetch batch quotes for multiple symbols.
- * Processes in batches of 10 with 200ms delay between batches.
- */
 export async function fetchBatchQuotes(symbols: string[]): Promise<QuoteData[]> {
-  const results: QuoteData[] = [];
+  const out: QuoteData[] = [];
   const batchSize = 10;
-
   for (let i = 0; i < symbols.length; i += batchSize) {
     const batch = symbols.slice(i, i + batchSize);
-    const batchResults = await Promise.all(batch.map((sym) => fetchSingleQuote(sym)));
-
-    for (const result of batchResults) {
-      if (result !== null) {
-        results.push(result);
-      }
-    }
-
-    // Delay between batches to respect rate limits
-    if (i + batchSize < symbols.length) {
-      await sleep(200);
-    }
+    const results = await fetchQuoteBatch(batch);
+    out.push(...results);
+    if (i + batchSize < symbols.length) await sleep(200);
   }
-
-  return results;
+  return out;
 }
 
-/**
- * Fetch historical OHLCV data (default 90 days of daily bars).
- */
 export async function fetchHistoricalData(
   symbol: string,
   period: '1mo' | '3mo' | '6mo' | '1y' = '3mo'
 ): Promise<OHLCVBar[]> {
   try {
-    const periodDays: Record<string, number> = {
-      '1mo': 30,
-      '3mo': 90,
-      '6mo': 180,
-      '1y': 365,
-    };
+    const url = `${CHART_URL}/${encodeURIComponent(symbol)}?interval=1d&range=${period}`;
+    const res = await axios.get(url, { headers: YF_HEADERS, timeout: 15000 });
+    const chart = res.data?.chart?.result?.[0];
+    if (!chart) return [];
 
-    const daysBack = periodDays[period] ?? 90;
-    const period1 = new Date();
-    period1.setDate(period1.getDate() - daysBack);
-    const period2 = new Date();
+    const timestamps: number[] = chart.timestamp ?? [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const q: any = chart.indicators?.quote?.[0] ?? {};
 
-    const result = await yahooFinance.historical(symbol, {
-      period1,
-      period2,
-      interval: '1d',
-    });
-
-    if (!result || result.length === 0) return [];
-
-    return result
-      .filter(
-        (bar: HistoricalResult) =>
-          bar.open !== undefined &&
-          bar.high !== undefined &&
-          bar.low !== undefined &&
-          bar.close !== undefined &&
-          bar.volume !== undefined
-      )
-      .map((bar: HistoricalResult) => ({
-        date: bar.date,
-        open: bar.open as number,
-        high: bar.high as number,
-        low: bar.low as number,
-        close: bar.close as number,
-        volume: bar.volume as number,
-      }));
+    return timestamps
+      .map((ts, i) => ({
+        date: new Date(ts * 1000),
+        open: q.open?.[i] ?? 0,
+        high: q.high?.[i] ?? 0,
+        low: q.low?.[i] ?? 0,
+        close: q.close?.[i] ?? 0,
+        volume: q.volume?.[i] ?? 0,
+      }))
+      .filter((bar) => bar.close > 0);
   } catch (err) {
-    log(`Failed to fetch historical data for ${symbol}: ${err}`);
+    logError(`Historical data failed for ${symbol}`, err);
     return [];
   }
 }
 
-/**
- * Get market overview data for major indices and VIX.
- */
 export async function fetchMarketOverview(): Promise<
   { symbol: string; price: number; change: number; changePercent: number }[]
 > {
   const symbols = ['SPY', 'QQQ', 'IWM', '^VIX'];
-  const results: { symbol: string; price: number; change: number; changePercent: number }[] = [];
-
-  for (const symbol of symbols) {
-    try {
-      const quote = await yahooFinance.quote(symbol);
-      if (quote) {
-        results.push({
-          symbol: symbol === '^VIX' ? 'VIX' : quote.symbol || symbol,
-          price: quote.regularMarketPrice ?? 0,
-          change: quote.regularMarketChange ?? 0,
-          changePercent: quote.regularMarketChangePercent ?? 0,
-        });
-      }
-    } catch (err) {
-      log(`Failed to fetch market overview for ${symbol}: ${err}`);
-    }
-    await sleep(100);
+  try {
+    const quotes = await fetchQuoteBatch(symbols);
+    return quotes.map((q) => ({
+      symbol: q.symbol === '^VIX' ? 'VIX' : q.symbol,
+      price: q.price,
+      change: q.change,
+      changePercent: q.changePercent,
+    }));
+  } catch (err) {
+    logError('Market overview failed', err);
+    return [];
   }
-
-  return results;
 }
