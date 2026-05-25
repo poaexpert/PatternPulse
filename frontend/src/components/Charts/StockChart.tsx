@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
+import type { UTCTimestamp } from 'lightweight-charts';
 import type { CandleData } from '../../types';
+
+type LWCTime = UTCTimestamp;
 
 interface StockChartProps {
   symbol: string;
@@ -31,12 +34,12 @@ function generateMockCandles(symbol: string, count = 100): CandleData[] {
   return candles;
 }
 
-function generateEMA(candles: CandleData[], period: number): { time: number; value: number }[] {
+function generateEMA(candles: CandleData[], period: number): { time: LWCTime; value: number }[] {
   const k = 2 / (period + 1);
   let ema = candles[0].close;
   return candles.map((c) => {
     ema = c.close * k + ema * (1 - k);
-    return { time: c.time as number, value: ema };
+    return { time: c.time as LWCTime, value: ema };
   });
 }
 
@@ -80,10 +83,9 @@ export default function StockChart({ symbol, height = 300, showVolume = true, sh
             vertLine: { color: '#2d303e', labelBackgroundColor: '#1e2028' },
             horzLine: { color: '#2d303e', labelBackgroundColor: '#1e2028' },
           },
-          rightPriceScale: { borderColor: '#1e2028', textColor: '#64748b' },
+          rightPriceScale: { borderColor: '#1e2028' },
           timeScale: {
             borderColor: '#1e2028',
-            textColor: '#64748b',
             timeVisible: true,
             secondsVisible: false,
           },
@@ -141,7 +143,7 @@ export default function StockChart({ symbol, height = 300, showVolume = true, sh
         // Set candlestick data
         candleSeries.setData(
           sortedCandles.map((c) => ({
-            time: c.time as number,
+            time: c.time as LWCTime,
             open: c.open,
             high: c.high,
             low: c.low,
@@ -153,7 +155,7 @@ export default function StockChart({ symbol, height = 300, showVolume = true, sh
         if (volumeSeries) {
           volumeSeries.setData(
             sortedCandles.map((c) => ({
-              time: c.time as number,
+              time: c.time as LWCTime,
               value: c.volume ?? 0,
               color: c.close >= c.open ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)',
             }))

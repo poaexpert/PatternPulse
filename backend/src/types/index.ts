@@ -140,4 +140,6 @@ export interface StoreData {
   lastScanTime: Date | null;
   scanInProgress: boolean;
   alertHistory: { id: string; symbol: string; message: string; timestamp: Date }[];
+  // Analysis history is typed loosely here to avoid circular import; actual type enforced in store.ts
+  analysisHistory: (Record<string, unknown> & { id: string })[];
 }

@@ -84,3 +84,87 @@ export const MARKET_ETFS = ['SPY', 'QQQ', 'IWM', 'DIA', 'VXX'];
 
 // Re-export deduplicated universe
 export { uniqueUniverse as UNIVERSE };
+
+// ─── Futures Universe ─────────────────────────────────────────────────────────
+export const FUTURES_UNIVERSE: string[] = [
+  // US Equity Index Futures
+  'ES=F',   // S&P 500 E-mini
+  'NQ=F',   // NASDAQ 100 E-mini
+  'YM=F',   // Dow Jones E-mini
+  'RTY=F',  // Russell 2000 E-mini
+
+  // Commodities
+  'CL=F',   // Crude Oil WTI
+  'BZ=F',   // Brent Crude Oil
+  'GC=F',   // Gold
+  'SI=F',   // Silver
+  'HG=F',   // Copper
+  'NG=F',   // Natural Gas
+  'ZC=F',   // Corn
+  'ZW=F',   // Wheat
+  'ZS=F',   // Soybeans
+
+  // Fixed Income
+  'ZN=F',   // 10-Year T-Note
+  'ZB=F',   // 30-Year T-Bond
+  'ZT=F',   // 2-Year T-Note
+
+  // Currencies (FX Futures)
+  '6E=F',   // Euro FX
+  '6J=F',   // Japanese Yen
+  '6B=F',   // British Pound
+  '6C=F',   // Canadian Dollar
+
+  // Crypto Futures (CME)
+  'BTC=F',  // Bitcoin CME
+  'ETH=F',  // Ethereum CME
+
+  // VIX
+  'VX=F',   // VIX Futures
+];
+
+// Human-readable names for futures
+export const FUTURES_NAMES: Record<string, string> = {
+  'ES=F': 'S&P 500 Futures',
+  'NQ=F': 'NASDAQ Futures',
+  'YM=F': 'Dow Futures',
+  'RTY=F': 'Russell 2000 Futures',
+  'CL=F': 'Crude Oil WTI',
+  'BZ=F': 'Brent Crude',
+  'GC=F': 'Gold',
+  'SI=F': 'Silver',
+  'HG=F': 'Copper',
+  'NG=F': 'Natural Gas',
+  'ZC=F': 'Corn',
+  'ZW=F': 'Wheat',
+  'ZS=F': 'Soybeans',
+  'ZN=F': '10-Year T-Note',
+  'ZB=F': '30-Year T-Bond',
+  'ZT=F': '2-Year T-Note',
+  '6E=F': 'Euro/USD Futures',
+  '6J=F': 'Yen/USD Futures',
+  '6B=F': 'GBP/USD Futures',
+  '6C=F': 'CAD/USD Futures',
+  'BTC=F': 'Bitcoin Futures (CME)',
+  'ETH=F': 'Ethereum Futures (CME)',
+  'VX=F': 'VIX Futures',
+};
+
+// ─── Crypto Universe ──────────────────────────────────────────────────────────
+export const CRYPTO_UNIVERSE: string[] = [
+  'BTC-USD',
+  'ETH-USD',
+  'SOL-USD',
+  'BNB-USD',
+  'XRP-USD',
+  'DOGE-USD',
+  'ADA-USD',
+  'AVAX-USD',
+  'MATIC-USD',
+  'LINK-USD',
+];
+
+// ─── Combined Universe ────────────────────────────────────────────────────────
+export const ALL_UNIVERSE: string[] = [
+  ...new Set([...SCAN_UNIVERSE, ...FUTURES_UNIVERSE, ...CRYPTO_UNIVERSE]),
+];

@@ -12,7 +12,6 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 import { config } from './config';
 import { startScheduler, setSocketIO, isMarketHours, isPreMarket } from './scheduler';
 import { store } from './store';
-import { initTelegram } from './notifications/telegram';
 import { runFullScan } from './scanners';
 import { log, logError } from './utils/logger';
 
@@ -22,6 +21,7 @@ import alertsRouter from './routes/alerts';
 import watchlistRouter from './routes/watchlist';
 import notificationsRouter from './routes/notifications';
 import marketRouter from './routes/market';
+import analysisRouter from './routes/analysis';
 
 const app = express();
 const server = createServer(app);
@@ -60,6 +60,7 @@ app.use('/api/alerts', alertsRouter);
 app.use('/api/watchlist', watchlistRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/market', marketRouter);
+app.use('/api/analysis', analysisRouter);
 app.use('/api', marketRouter); // exposes /api/stock/:symbol/* routes
 
 // Health check
@@ -73,6 +74,7 @@ app.get('/health', (_req, res) => {
     totalSignals: store.getScanResults().length,
     marketHours: isMarketHours(),
     preMarket: isPreMarket(),
+    analysisEnabled: !!process.env.ANTHROPIC_API_KEY,
   });
 });
 
@@ -147,23 +149,6 @@ io.on('connection', (socket) => {
 
 // ── Startup ───────────────────────────────────────────────────────────────────
 setSocketIO(io);
-
-// Initialize Telegram if token is configured
-const notifSettings = store.getNotificationSettings();
-if (notifSettings.telegram.botToken) {
-  initTelegram(notifSettings.telegram.botToken);
-} else if (config.TELEGRAM_BOT_TOKEN) {
-  // Fall back to env variable
-  initTelegram(config.TELEGRAM_BOT_TOKEN);
-  // Also pre-fill settings from env
-  store.updateNotificationSettings({
-    telegram: {
-      enabled: true,
-      botToken: config.TELEGRAM_BOT_TOKEN,
-      chatId: config.TELEGRAM_CHAT_ID,
-    },
-  });
-}
 
 // Start the cron scheduler
 startScheduler();

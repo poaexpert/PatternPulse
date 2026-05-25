@@ -1,4 +1,5 @@
 import { StoreData, Alert, WatchlistItem, NotificationSettings, ScanResult, ScanType } from './types';
+import { ChartAnalysis } from './analysis/claude';
 import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -46,6 +47,7 @@ const DEFAULT_STORE: StoreData = {
   lastScanTime: null,
   scanInProgress: false,
   alertHistory: [],
+  analysisHistory: [],
 };
 
 class Store {
@@ -310,6 +312,25 @@ class Store {
 
   getAlertHistory(): { id: string; symbol: string; message: string; timestamp: Date }[] {
     return this.data.alertHistory;
+  }
+
+  // ─── Analysis History ────────────────────────────────────────────────────
+  addAnalysis(analysis: ChartAnalysis & { symbol?: string }): void {
+    const entry = { ...analysis, id: uuidv4() } as Record<string, unknown> & { id: string };
+    this.data.analysisHistory.unshift(entry);
+    // Keep only last 50 entries
+    if (this.data.analysisHistory.length > 50) {
+      this.data.analysisHistory = this.data.analysisHistory.slice(0, 50);
+    }
+    // Note: analysis history is not persisted to disk (contains large data)
+  }
+
+  getAnalysisHistory(): (ChartAnalysis & { symbol?: string; id: string })[] {
+    return this.data.analysisHistory as unknown as (ChartAnalysis & { symbol?: string; id: string })[];
+  }
+
+  clearAnalysisHistory(): void {
+    this.data.analysisHistory = [];
   }
 }
 
