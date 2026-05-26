@@ -14,6 +14,7 @@ import { startScheduler, setSocketIO, isMarketHours, isPreMarket } from './sched
 import { store } from './store';
 import { runFullScan } from './scanners';
 import { log, logError } from './utils/logger';
+import { initTelegram } from './notifications/telegram';
 
 // Routes
 import scannerRouter from './routes/scanner';
@@ -159,6 +160,20 @@ io.on('connection', (socket) => {
 
 // ── Startup ───────────────────────────────────────────────────────────────────
 setSocketIO(io);
+
+// Auto-initialize Telegram with configured token
+if (config.TELEGRAM_BOT_TOKEN) {
+  initTelegram(config.TELEGRAM_BOT_TOKEN);
+  // Auto-configure store settings so the bot is enabled
+  store.updateNotificationSettings({
+    telegram: {
+      enabled: true,
+      botToken: config.TELEGRAM_BOT_TOKEN,
+      chatId: config.TELEGRAM_CHAT_ID || store.getNotificationSettings().telegram.chatId,
+    },
+  });
+  log('Telegram bot initialized');
+}
 
 // Start the cron scheduler
 startScheduler();

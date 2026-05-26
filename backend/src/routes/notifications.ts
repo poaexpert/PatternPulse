@@ -130,6 +130,30 @@ router.post('/test/pushover', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/notifications/telegram/detect-chat
+ * Auto-detect the chat ID from recent bot messages (user must have messaged the bot first).
+ */
+router.get('/telegram/detect-chat', async (_req: Request, res: Response) => {
+  try {
+    const chats = await telegramService.getUpdates();
+    if (chats.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No messages found. Open Telegram, find your PatternPulse bot, and send it /start — then try again.',
+      });
+    }
+    // Auto-save the first chat ID found
+    const { chatId, username } = chats[0];
+    const curTg = store.getNotificationSettings().telegram;
+    store.updateNotificationSettings({ telegram: { ...curTg, chatId } });
+    log(`Telegram chat ID auto-detected: ${chatId} (${username})`);
+    return res.json({ success: true, chatId, username });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: `Failed to detect chat: ${err}` });
+  }
+});
+
+/**
  * GET /api/notifications/history
  * Returns recent alert history (last 100 entries).
  */

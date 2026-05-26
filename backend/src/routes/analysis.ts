@@ -2,7 +2,8 @@ import { Router, Request, Response } from 'express';
 import { analyzeSymbolWithTA } from '../analysis/technicalAnalysis';
 import { fetchHistoricalData } from '../data/market';
 import { store } from '../store';
-import { logError } from '../utils/logger';
+import { logError, log } from '../utils/logger';
+import * as telegram from '../notifications/telegram';
 
 const router = Router();
 
@@ -101,6 +102,30 @@ router.post('/chart/:symbol', async (req: Request, res: Response) => {
     const analysis = await analyzeSymbolWithTA(usedSymbol, bars);
     const result = { ...analysis, symbol: rawSymbol, resolvedSymbol: usedSymbol };
     store.addAnalysis(result);
+
+    // Auto-send to Telegram if strong signal and chat configured
+    const tgSettings = store.getNotificationSettings().telegram;
+    if (
+      telegram.isInitialized() &&
+      tgSettings.enabled &&
+      tgSettings.chatId &&
+      analysis.signalStrength >= 6 &&
+      analysis.swingSetup.direction !== 'NONE'
+    ) {
+      const { swingSetup, summary, signalStrength } = analysis;
+      telegram.sendAnalysisAlert(
+        tgSettings.chatId,
+        rawSymbol,
+        swingSetup.direction as 'LONG' | 'SHORT',
+        swingSetup.entry ?? 0,
+        swingSetup.stopLoss ?? 0,
+        swingSetup.target1 ?? 0,
+        swingSetup.target2 ?? 0,
+        signalStrength,
+        summary
+      ).catch((err) => logError('Telegram analysis alert failed', err));
+      log(`Telegram alert sent for ${rawSymbol} (strength ${signalStrength})`);
+    }
 
     return res.json({ success: true, analysis: result });
   } catch (err) {
