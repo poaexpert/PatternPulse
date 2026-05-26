@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import axios from 'axios';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import dotenv from 'dotenv';
@@ -63,6 +64,24 @@ app.use('/api/notifications', notificationsRouter);
 app.use('/api/market', marketRouter);
 app.use('/api/analysis', analysisRouter);
 app.use('/api', marketRouter); // exposes /api/stock/:symbol/* routes
+
+// ── Bot proxy (/bot/* → ChartSpyder Python service on port 8081) ──────────────
+app.use('/bot', async (req: express.Request, res: express.Response) => {
+  try {
+    const botUrl = `http://127.0.0.1:${process.env.BOT_PORT ?? '8081'}${req.path}`;
+    const response = await axios({
+      method: req.method as 'get' | 'post' | 'put' | 'delete',
+      url: botUrl,
+      data: req.body,
+      params: req.query,
+      timeout: 10000,
+    });
+    res.status(response.status).json(response.data);
+  } catch (err: any) {
+    if (err.response) res.status(err.response.status).json(err.response.data);
+    else res.status(502).json({ success: false, message: 'Bot service unavailable' });
+  }
+});
 
 // Health check
 app.get('/health', (_req, res) => {

@@ -1447,8 +1447,8 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
         "bot:app",
-        host="0.0.0.0",
-        port=int(os.getenv("PORT", "8080")),
+        host="127.0.0.1",
+        port=int(os.getenv("BOT_PORT", "8081")),
         log_level="info",
         reload=False,
     )
