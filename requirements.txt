@@ -1,0 +1,28 @@
+# ── ChartSpyder AI — Python dependencies ────────────────────────────────────
+# Install: pip install -r requirements.txt
+
+# ── Web framework & ASGI server ──────────────────────────────────────────────
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+
+# ── Robinhood broker API ──────────────────────────────────────────────────────
+robin-stocks>=3.0.0
+
+# ── Telegram interactive bot ──────────────────────────────────────────────────
+# v20+ uses native asyncio — required for non-blocking polling
+python-telegram-bot>=20.8
+
+# ── Async file I/O (Module D10: state persistence) ────────────────────────────
+aiofiles>=23.2.0
+
+# ── HTTP client — async (volume filter, Yahoo fallback prices) ────────────────
+httpx>=0.27.0
+
+# ── Mathematical / numerical (Module C7: RSI, array ops) ─────────────────────
+numpy>=1.26.0
+
+# ── System metrics (Module D12: heartbeat memory usage) ──────────────────────
+psutil>=5.9.8
+
+# ── Environment configuration ────────────────────────────────────────────────
+python-dotenv>=1.0.1
