@@ -393,7 +393,7 @@ export default function AIAnalysisPanel() {
         <div className="bg-terminal-card border border-terminal-border rounded-xl p-4 min-h-64 overflow-y-auto max-h-[70vh]">
           {currentAnalysis ? (
             <div className="space-y-3">
-              <AnalysisResults analysis={currentAnalysis} />
+              <AnalysisResults analysis={currentAnalysis} timeframe={timeframe} />
               {/* Exit alerts button — shown when a swing setup exists */}
               {currentAnalysis.swingSetup.exists && currentAnalysis.swingSetup.direction !== 'NONE' && (
                 <button

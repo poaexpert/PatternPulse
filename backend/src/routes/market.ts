@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { fetchBatchQuotes, fetchHistoricalData, fetchMarketOverview } from '../data/market';
+import { fetchBatchQuotes, fetchHistoricalData, fetchIntradayBars, fetchMarketOverview } from '../data/market';
 import { store } from '../store';
 import * as indicators from '../indicators';
 import { logError } from '../utils/logger';
@@ -107,14 +107,15 @@ router.get('/stock/:symbol/quote', async (req: Request, res: Response) => {
 /**
  * GET /api/stock/:symbol/history
  * Get historical OHLCV bars for charting.
- * Query: period=1mo|3mo|6mo|1y (default: 3mo)
+ * Query: period=1mo|3mo|6mo|1y (default: 3mo), interval=15m|h|4h (intraday)
  */
 router.get('/stock/:symbol/history', async (req: Request, res: Response) => {
   const { symbol } = req.params;
   const period = (req.query.period as '1mo' | '3mo' | '6mo' | '1y') || '3mo';
+  const interval = req.query.interval as string | undefined;
 
   const validPeriods = ['1mo', '3mo', '6mo', '1y'];
-  if (!validPeriods.includes(period)) {
+  if (!interval && !validPeriods.includes(period)) {
     return res.status(400).json({
       success: false,
       message: `Invalid period. Must be one of: ${validPeriods.join(', ')}`,
@@ -122,11 +123,17 @@ router.get('/stock/:symbol/history', async (req: Request, res: Response) => {
   }
 
   try {
-    const bars = await fetchHistoricalData(symbol.toUpperCase(), period);
+    let bars;
+    if (interval === '15m' || interval === 'h' || interval === '4h') {
+      bars = await fetchIntradayBars(symbol.toUpperCase(), interval);
+      if (bars.length < 5) bars = await fetchHistoricalData(symbol.toUpperCase(), '1mo');
+    } else {
+      bars = await fetchHistoricalData(symbol.toUpperCase(), period);
+    }
     return res.json({
       success: true,
       symbol: symbol.toUpperCase(),
-      period,
+      period: interval ?? period,
       count: bars.length,
       bars,
     });

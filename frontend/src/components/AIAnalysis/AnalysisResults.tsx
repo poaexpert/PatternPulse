@@ -1,7 +1,165 @@
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import type { ChartAnalysis } from '../../types';
+import CandlestickChart from '../Chart/CandlestickChart';
 
 interface AnalysisResultsProps {
   analysis: ChartAnalysis;
+  timeframe?: string;
+}
+
+// ── Correlated side plays ────────────────────────────────────────────────────
+
+interface SidePlay {
+  symbol: string;
+  name: string;
+  relation: string;
+  inverse?: boolean;
+}
+
+const SIDE_PLAYS: Record<string, SidePlay[]> = {
+  'SI=F': [
+    { symbol: 'GC=F',  name: 'Gold',          relation: 'Precious metals — same direction' },
+    { symbol: 'SIL=F', name: 'Micro Silver',   relation: 'Same trade · 1/5 size' },
+    { symbol: 'HG=F',  name: 'Copper',         relation: 'Industrial metals signal' },
+    { symbol: 'MGC=F', name: 'Micro Gold',     relation: 'Same direction · smaller' },
+  ],
+  'GC=F': [
+    { symbol: 'SI=F',  name: 'Silver',         relation: 'Amplified precious-metals move' },
+    { symbol: 'MGC=F', name: 'Micro Gold',     relation: 'Same trade · 1/10 size' },
+    { symbol: 'PL=F',  name: 'Platinum',       relation: 'Precious metals group' },
+    { symbol: 'SIL=F', name: 'Micro Silver',   relation: 'Smaller precious metal play' },
+  ],
+  'MGC=F': [
+    { symbol: 'GC=F',  name: 'Full Gold',      relation: 'Same asset, full size' },
+    { symbol: 'SI=F',  name: 'Silver',         relation: 'Precious metals companion' },
+    { symbol: 'SIL=F', name: 'Micro Silver',   relation: 'Micro precious metals' },
+  ],
+  'SIL=F': [
+    { symbol: 'SI=F',  name: 'Full Silver',    relation: 'Same asset, full size' },
+    { symbol: 'GC=F',  name: 'Gold',           relation: 'Leading precious metals indicator' },
+    { symbol: 'MGC=F', name: 'Micro Gold',     relation: 'Micro precious metals' },
+  ],
+  'ES=F': [
+    { symbol: 'NQ=F',  name: 'Nasdaq-100',     relation: 'High-beta confirmation' },
+    { symbol: 'MES=F', name: 'Micro S&P',      relation: 'Same trade · 1/10 size' },
+    { symbol: 'RTY=F', name: 'Russell 2000',   relation: 'Risk-on breadth signal' },
+    { symbol: 'VX=F',  name: 'VIX Futures',    relation: 'Fear gauge — inverse', inverse: true },
+  ],
+  'NQ=F': [
+    { symbol: 'ES=F',  name: 'S&P 500',        relation: 'Broad market confirmation' },
+    { symbol: 'MNQ=F', name: 'Micro Nasdaq',   relation: 'Same trade · 1/10 size' },
+    { symbol: 'RTY=F', name: 'Russell 2000',   relation: 'Risk appetite signal' },
+    { symbol: 'VX=F',  name: 'VIX Futures',    relation: 'Fear gauge — inverse', inverse: true },
+  ],
+  'MES=F': [
+    { symbol: 'ES=F',  name: 'Full S&P',       relation: 'Same asset, full size' },
+    { symbol: 'MNQ=F', name: 'Micro Nasdaq',   relation: 'Tech-heavy companion' },
+  ],
+  'MNQ=F': [
+    { symbol: 'NQ=F',  name: 'Full Nasdaq',    relation: 'Same asset, full size' },
+    { symbol: 'MES=F', name: 'Micro S&P',      relation: 'Broader market companion' },
+  ],
+  'CL=F': [
+    { symbol: 'BZ=F',  name: 'Brent Crude',    relation: 'Global oil benchmark' },
+    { symbol: 'QM=F',  name: 'Mini Crude',     relation: 'Same trade · half size' },
+    { symbol: 'NG=F',  name: 'Natural Gas',    relation: 'Energy complex' },
+  ],
+  'NG=F': [
+    { symbol: 'CL=F',  name: 'Crude Oil WTI',  relation: 'Energy complex correlation' },
+    { symbol: 'BZ=F',  name: 'Brent Crude',    relation: 'Energy complex' },
+  ],
+  'HG=F': [
+    { symbol: 'SI=F',  name: 'Silver',         relation: 'Industrial metals link' },
+    { symbol: 'GC=F',  name: 'Gold',           relation: 'Precious/industrial overlap' },
+  ],
+  'ZN=F': [
+    { symbol: 'ZB=F',  name: '30-Year T-Bond', relation: 'Same direction, higher duration' },
+    { symbol: 'ZF=F',  name: '5-Year T-Note',  relation: 'Treasury curve play' },
+  ],
+  'ZB=F': [
+    { symbol: 'ZN=F',  name: '10-Year T-Note', relation: 'Treasury companion' },
+    { symbol: 'ES=F',  name: 'S&P 500',        relation: 'Rate/equity inverse', inverse: true },
+  ],
+};
+
+interface QuoteSnap {
+  price: number;
+  changePercent: number;
+}
+
+function SidePlays({ symbol, direction }: { symbol: string; direction: string }) {
+  const rootSym = symbol.replace(/[A-Z]\d{2}.*$/, '=F').toUpperCase();
+  const plays = SIDE_PLAYS[rootSym] ?? SIDE_PLAYS[symbol] ?? [];
+  const [quotes, setQuotes] = useState<Record<string, QuoteSnap>>({});
+
+  useEffect(() => {
+    if (plays.length === 0) return;
+    plays.forEach(({ symbol: s }) => {
+      axios.get<{ quote: QuoteSnap }>(`/api/stock/${encodeURIComponent(s)}/quote`)
+        .then(({ data }) => {
+          if (data.quote) {
+            setQuotes((prev) => ({ ...prev, [s]: data.quote }));
+          }
+        })
+        .catch(() => {});
+    });
+  }, [symbol]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (plays.length === 0) return null;
+
+  return (
+    <div className="bg-terminal-card border border-terminal-border rounded-lg p-4">
+      <h3 className="text-xs font-semibold text-terminal-text-secondary uppercase tracking-widest mb-3">
+        Related Side Plays
+      </h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {plays.map(({ symbol: s, name, relation, inverse }) => {
+          const q = quotes[s];
+          const confirming = q
+            ? inverse
+              ? (direction === 'LONG' ? q.changePercent < 0 : q.changePercent > 0)
+              : (direction === 'LONG' ? q.changePercent > 0 : q.changePercent < 0)
+            : null;
+          const up = (q?.changePercent ?? 0) >= 0;
+          return (
+            <div key={s} className={`flex items-center gap-3 rounded-lg px-3 py-2 bg-terminal-bg border ${
+              confirming === true ? 'border-terminal-green/25' :
+              confirming === false ? 'border-terminal-red/20' :
+              'border-terminal-border'
+            }`}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-terminal-text-primary font-mono">{s.replace('=F', '')}</span>
+                  {inverse && <span className="text-[9px] px-1 py-0.5 rounded bg-terminal-red/10 text-terminal-red border border-terminal-red/20">INVERSE</span>}
+                  {confirming === true && <span className="text-[9px] text-terminal-green">✓ confirming</span>}
+                  {confirming === false && <span className="text-[9px] text-terminal-red/70">✗ diverging</span>}
+                </div>
+                <p className="text-[10px] text-terminal-text-secondary truncate">{name} — {relation}</p>
+              </div>
+              <div className="text-right shrink-0">
+                {q ? (
+                  <>
+                    <p className="text-xs font-bold tabular-nums text-terminal-text-primary">
+                      {q.price >= 1000 ? `$${q.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${q.price.toFixed(2)}`}
+                    </p>
+                    <p className={`text-[10px] tabular-nums ${up ? 'text-terminal-green' : 'text-terminal-red'}`}>
+                      {up ? '▲' : '▼'} {Math.abs(q.changePercent).toFixed(2)}%
+                    </p>
+                  </>
+                ) : (
+                  <span className="text-[10px] text-terminal-text-secondary">…</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-[10px] text-terminal-text-secondary/60 mt-2">
+        Confirming = moving in same direction as your primary trade{direction !== 'NONE' ? ` (${direction})` : ''}
+      </p>
+    </div>
+  );
 }
 
 function SignalStrengthBar({ strength }: { strength: number }) {
@@ -76,7 +234,7 @@ function pctFromEntry(price: number | null, entry: number | null): string {
   return `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
 }
 
-export default function AnalysisResults({ analysis }: AnalysisResultsProps) {
+export default function AnalysisResults({ analysis, timeframe = '1d' }: AnalysisResultsProps) {
   const { trend, topBottomSignal, keyLevels, patterns, swingSetup, indicators, signalStrength, summary, warnings, currentPrice, symbol, resolvedSymbol } = analysis;
 
   const resolvedDiffers = resolvedSymbol && symbol && resolvedSymbol !== symbol;
@@ -207,7 +365,15 @@ export default function AnalysisResults({ analysis }: AnalysisResultsProps) {
       {/* 1. GO LONG / GO SHORT direction banner */}
       {directionBanner}
 
-      {/* 2. Reversal signal (if any) */}
+      {/* 2. Candlestick chart */}
+      <CandlestickChart
+        symbol={resolvedSymbol ?? symbol ?? ''}
+        timeframe={timeframe}
+        swingSetup={swingSetup}
+        height={270}
+      />
+
+      {/* 3. Reversal signal (if any) */}
       {reversalBanner}
 
       {/* 3. Trend */}
@@ -338,7 +504,13 @@ export default function AnalysisResults({ analysis }: AnalysisResultsProps) {
         </div>
       )}
 
-      {/* 9. Summary */}
+      {/* 9. Side plays */}
+      <SidePlays
+        symbol={resolvedSymbol ?? symbol ?? ''}
+        direction={swingSetup?.direction ?? 'NONE'}
+      />
+
+      {/* 10. Summary */}
       {summary && (
         <div className="rounded-lg border border-terminal-cyan/20 bg-terminal-cyan/5 px-4 py-3">
           <p className="text-[10px] font-semibold text-terminal-cyan uppercase tracking-widest mb-2">Summary</p>

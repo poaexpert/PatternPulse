@@ -79,21 +79,28 @@ const STOOQ_MAP: Record<string, string> = {
   '^VIX': '^vix', '^GSPC': '^spx', '^DJI': '^dji', '^IXIC': '^ndq',
 };
 
+const MONTH_CODES = 'FGHJKMNQUVXZ';
+
 function toStooqSymbol(symbol: string): string | null {
   if (STOOQ_MAP[symbol]) return STOOQ_MAP[symbol];
 
-  // Specific futures contract: SIN26.CMX → try root continuous
-  const contractMatch = symbol.match(/^([A-Z]{2,4})[A-Z]\d{2}\./);
-  if (contractMatch) {
-    const root = `${contractMatch[1]}=F`;
+  // Specific futures contract with exchange suffix: SIN26.CMX → root continuous
+  const contractDotMatch = symbol.match(/^([A-Z]{2,4})[A-Z]\d{2}\./);
+  if (contractDotMatch) {
+    const root = `${contractDotMatch[1]}=F`;
     if (STOOQ_MAP[root]) return STOOQ_MAP[root];
   }
 
-  // Bare futures root (SICN26 format already normalised by routes/analysis.ts)
-  const rootOnly = symbol.match(/^([A-Z]{2,4})=F$/);
-  if (rootOnly && STOOQ_MAP[symbol]) return STOOQ_MAP[symbol];
+  // Broker-format futures: SICN26 / GCM26 / ESH25 / MNQH25 (no dot, ends with letter+2 digits)
+  // Root may optionally have 'C' for continuous before the month code
+  const brokerRe = new RegExp(`^([A-Z]{2,4})C?[${MONTH_CODES}]\\d{2}$`);
+  const brokerMatch = symbol.match(brokerRe);
+  if (brokerMatch) {
+    const root = `${brokerMatch[1]}=F`;
+    if (STOOQ_MAP[root]) return STOOQ_MAP[root];
+  }
 
-  // US stock ticker (1-5 uppercase letters, no special chars)
+  // US stock ticker (1-5 uppercase letters only, no digits)
   if (/^[A-Z]{1,5}$/.test(symbol)) return `${symbol.toLowerCase()}.us`;
 
   return null;
