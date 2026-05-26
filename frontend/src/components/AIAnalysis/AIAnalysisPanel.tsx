@@ -8,7 +8,7 @@ function friendlyApiError(err: unknown): string {
   if (!axios.isAxiosError(err)) return 'Analysis failed. Please try again.';
   const body = err.response?.data;
   const msg: string = body?.message ?? err.message ?? 'Unknown error';
-  if (err.response?.status === 422) return `Not enough data: ${msg}`;
+  if (err.response?.status === 422) return msg;
   return msg || 'Analysis failed. Please try again.';
 }
 

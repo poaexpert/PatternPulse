@@ -28,9 +28,12 @@ router.post('/chart/:symbol', async (req: Request, res: Response) => {
     const bars = await fetchHistoricalData(symbol, '3mo');
 
     if (bars.length < 20) {
+      const hasAvKey = !!process.env.ALPHA_VANTAGE_KEY;
       return res.status(422).json({
         success: false,
-        message: 'Not enough historical data for analysis.',
+        message: hasAvKey
+          ? `Could not fetch enough historical data for ${symbol}. Check that the symbol is valid (e.g. AAPL, TSLA, ES=F).`
+          : `Could not fetch data for ${symbol}. Yahoo Finance may be temporarily blocking this server. Add a free ALPHA_VANTAGE_KEY in Railway environment variables for reliable data (free at alphavantage.co).`,
       });
     }
 
