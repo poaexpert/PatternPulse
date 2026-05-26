@@ -167,7 +167,7 @@ function SignalSection({ title, direction, color }: { title: string; direction: 
               result={result}
               onClick={() => {
                 setSelectedSymbol(result.symbol);
-                setActiveView('scanner');
+                setActiveView('ai-analysis');
               }}
             />
           ))}

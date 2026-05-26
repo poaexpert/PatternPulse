@@ -497,10 +497,28 @@ export default function FuturesPanel() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [refresh]);
 
+  // Sync existing favorites to backend watchlist on first load
+  useEffect(() => {
+    const favs = loadFavorites();
+    favs.forEach((symbol) => {
+      const def = FUTURES_LIST.find((f) => f.symbol === symbol);
+      axios.post('/api/watchlist', { symbol, name: def?.name ?? symbol }).catch(() => {});
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const toggleFavorite = useCallback((symbol: string) => {
     setFavorites((prev) => {
       const next = new Set(prev);
-      if (next.has(symbol)) next.delete(symbol); else next.add(symbol);
+      const adding = !prev.has(symbol);
+      if (adding) {
+        next.add(symbol);
+        const def = FUTURES_LIST.find((f) => f.symbol === symbol);
+        axios.post('/api/watchlist', { symbol, name: def?.name ?? symbol }).catch(() => {});
+      } else {
+        next.delete(symbol);
+        axios.delete(`/api/watchlist/${encodeURIComponent(symbol)}`).catch(() => {});
+      }
       saveFavorites(next);
       return next;
     });

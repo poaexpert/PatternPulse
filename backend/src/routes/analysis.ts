@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { analyzeSymbolWithTA } from '../analysis/technicalAnalysis';
-import { fetchHistoricalData } from '../data/market';
+import { fetchHistoricalData, fetchIntradayBars } from '../data/market';
 import { store } from '../store';
 import { logError, log } from '../utils/logger';
 import * as telegram from '../notifications/telegram';
@@ -75,13 +75,24 @@ router.post('/image', (_req: Request, res: Response) => {
 router.post('/chart/:symbol', async (req: Request, res: Response) => {
   try {
     const rawSymbol = req.params.symbol.toUpperCase();
+    const timeframe = ((req.query.timeframe as string) || '1d').toLowerCase();
     const candidates = normalizeSymbol(rawSymbol);
 
     let bars: Awaited<ReturnType<typeof fetchHistoricalData>> = [];
     let usedSymbol = rawSymbol;
 
     for (const candidate of candidates) {
-      bars = await fetchHistoricalData(candidate, '3mo');
+      if (timeframe === '15m' || timeframe === '1h' || timeframe === '4h') {
+        const interval = timeframe === '15m' ? '15m' : timeframe === '4h' ? '4h' : 'h';
+        bars = await fetchIntradayBars(candidate, interval as '15m' | 'h' | '4h');
+        if (bars.length < 10) {
+          // Fall back to daily if no intraday data
+          bars = await fetchHistoricalData(candidate, '3mo');
+        }
+      } else {
+        bars = await fetchHistoricalData(candidate, '3mo');
+      }
+
       if (bars.length >= 20) {
         usedSymbol = candidate;
         break;
@@ -89,23 +100,29 @@ router.post('/chart/:symbol', async (req: Request, res: Response) => {
     }
 
     if (bars.length < 20) {
-      const hasAvKey = !!process.env.ALPHA_VANTAGE_KEY;
       const tried = candidates.join(', ');
       return res.status(422).json({
         success: false,
-        message: hasAvKey
-          ? `Could not fetch data for ${rawSymbol} (tried: ${tried}). Check the symbol. For futures use SI=F, GC=F, ES=F or specific contracts like SIN26.CMX.`
-          : `Could not fetch data for ${rawSymbol} (tried: ${tried}). Yahoo Finance may be blocking this server. For reliable data, add a free ALPHA_VANTAGE_KEY in Railway environment variables (free at alphavantage.co).`,
+        message: `Could not fetch data for ${rawSymbol} (tried: ${tried}). For futures use SI=F, GC=F, ES=F or specific contracts like SIN26.CMX.`,
       });
     }
 
     const analysis = await analyzeSymbolWithTA(usedSymbol, bars);
-    const result = { ...analysis, symbol: rawSymbol, resolvedSymbol: usedSymbol };
+    const result = { ...analysis, symbol: rawSymbol, resolvedSymbol: usedSymbol, timeframe };
     store.addAnalysis(result);
 
-    // Auto-send to Telegram if strong signal and chat configured
+    // Auto-send Telegram ONLY for starred (watchlisted) symbols with strong signals
     const tgSettings = store.getNotificationSettings().telegram;
+    const watchlist = store.getWatchlist();
+    const symU = rawSymbol.toUpperCase();
+    const usedU = usedSymbol.toUpperCase();
+    const isStarred = watchlist.some((w) => {
+      const ws = w.symbol.toUpperCase();
+      return ws === symU || ws === usedU || ws.replace('=F', '') === symU.replace('=F', '');
+    });
+
     if (
+      isStarred &&
       telegram.isInitialized() &&
       tgSettings.enabled &&
       tgSettings.chatId &&
@@ -124,7 +141,7 @@ router.post('/chart/:symbol', async (req: Request, res: Response) => {
         signalStrength,
         summary
       ).catch((err) => logError('Telegram analysis alert failed', err));
-      log(`Telegram alert sent for ${rawSymbol} (strength ${signalStrength})`);
+      log(`Telegram alert sent for ${rawSymbol} (strength ${signalStrength}, timeframe ${timeframe})`);
     }
 
     return res.json({ success: true, analysis: result });

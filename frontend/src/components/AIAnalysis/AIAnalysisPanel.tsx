@@ -112,6 +112,13 @@ const REFRESH_INTERVALS = [
   { label: '30m', value: 30 * 60 * 1000 },
 ];
 
+const TIMEFRAMES = [
+  { label: '15m', value: '15m', hint: 'Scalp' },
+  { label: '1h',  value: '1h',  hint: 'Intraday' },
+  { label: '4h',  value: '4h',  hint: 'Short swing' },
+  { label: '1d',  value: '1d',  hint: 'Daily' },
+];
+
 export default function AIAnalysisPanel() {
   const { analysisHistory, addAnalysis, setAnalysisHistory, selectedSymbol, setSelectedSymbol } = useStore();
 
@@ -123,6 +130,7 @@ export default function AIAnalysisPanel() {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState(0);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [timeframe, setTimeframe] = useState('1d');
   const [alertsSet, setAlertsSet] = useState(false);
   const [settingAlerts, setSettingAlerts] = useState(false);
 
@@ -154,14 +162,16 @@ export default function AIAnalysisPanel() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSymbol]);
 
-  const runAnalysis = useCallback(async (sym: string) => {
+  const runAnalysis = useCallback(async (sym: string, tf?: string) => {
     if (!sym) return;
     setIsAnalyzing(true);
     setError(null);
     try {
-      const res = await axios.post<{ success: boolean; analysis: ChartAnalysis }>(`/api/analysis/chart/${sym}`, {
-        context: context.trim() || undefined,
-      });
+      const useTf = tf ?? timeframe;
+      const res = await axios.post<{ success: boolean; analysis: ChartAnalysis }>(
+        `/api/analysis/chart/${sym}?timeframe=${useTf}`,
+        { context: context.trim() || undefined }
+      );
       const analysis = res.data?.analysis ?? res.data;
       setCurrentAnalysis(analysis as ChartAnalysis);
       addAnalysis(analysis as ChartAnalysis);
@@ -172,7 +182,7 @@ export default function AIAnalysisPanel() {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [context, addAnalysis]);
+  }, [context, addAnalysis, timeframe]);
 
   const analyzeSymbol = async () => {
     const sym = symbolInput.trim().toUpperCase();
@@ -254,10 +264,10 @@ export default function AIAnalysisPanel() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-terminal-text-primary">Technical Analysis</h1>
-          <p className="text-xs text-terminal-text-secondary mt-0.5">Free · Yahoo Finance data · No API key needed</p>
+          <p className="text-xs text-terminal-text-secondary mt-0.5">Free · Stooq + multi-source · No API key</p>
         </div>
         <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-terminal-cyan/15 text-terminal-cyan border border-terminal-cyan/25">
-          Free · No API Key
+          15m · 1h · 4h · 1d
         </span>
       </div>
 
@@ -284,6 +294,28 @@ export default function AIAnalysisPanel() {
             >
               {isAnalyzing ? <span className="flex items-center gap-1">Analyzing<TypingDots /></span> : 'Analyze'}
             </button>
+          </div>
+
+          {/* Timeframe selector */}
+          <div>
+            <p className="text-[10px] font-semibold text-terminal-text-secondary uppercase tracking-wider mb-1.5">Timeframe</p>
+            <div className="flex gap-1.5">
+              {TIMEFRAMES.map(({ label, value, hint }) => (
+                <button
+                  key={value}
+                  onClick={() => setTimeframe(value)}
+                  title={hint}
+                  className={`flex-1 text-xs py-1.5 rounded border transition-colors font-bold ${
+                    timeframe === value
+                      ? 'bg-terminal-cyan/20 border-terminal-cyan/50 text-terminal-cyan'
+                      : 'bg-terminal-bg border-terminal-border text-terminal-text-secondary hover:border-terminal-cyan/30 hover:text-terminal-text-primary'
+                  }`}
+                >
+                  {label}
+                  <span className="block text-[9px] font-normal opacity-70 leading-tight">{hint}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Quick picks for futures */}
