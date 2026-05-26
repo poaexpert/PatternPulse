@@ -4,6 +4,35 @@ import AnalysisResults from './AnalysisResults';
 import { useStore } from '../../store';
 import type { ChartAnalysis } from '../../types';
 
+// Common futures shorthand → standard Yahoo/Stooq symbol
+const FUTURES_SHORTHANDS: Record<string, string> = {
+  SI: 'SI=F', SILVER: 'SI=F',
+  GC: 'GC=F', GOLD: 'GC=F',
+  MGC: 'MGC=F',
+  SIL: 'SIL=F',
+  ES: 'ES=F', SP500: 'ES=F', SPX: 'ES=F',
+  MES: 'MES=F',
+  NQ: 'NQ=F', NASDAQ: 'NQ=F', NDX: 'NQ=F',
+  MNQ: 'MNQ=F',
+  RTY: 'RTY=F', RUT: 'RTY=F',
+  CL: 'CL=F', OIL: 'CL=F', WTI: 'CL=F',
+  BZ: 'BZ=F', BRENT: 'BZ=F',
+  NG: 'NG=F', GAS: 'NG=F',
+  HG: 'HG=F', COPPER: 'HG=F',
+  ZN: 'ZN=F',
+  ZB: 'ZB=F',
+  ZF: 'ZF=F',
+  PL: 'PL=F', PLATINUM: 'PL=F',
+  PA: 'PA=F', PALLADIUM: 'PA=F',
+  YM: 'YM=F', DOW: 'YM=F',
+  GE: 'GE=F',
+};
+
+function normalizeSymbol(input: string): string {
+  const upper = input.trim().toUpperCase();
+  return FUTURES_SHORTHANDS[upper] ?? upper;
+}
+
 function friendlyApiError(err: unknown): string {
   if (!axios.isAxiosError(err)) return 'Analysis failed. Please try again.';
   const body = err.response?.data;
@@ -156,7 +185,7 @@ export default function AIAnalysisPanel() {
   // Pre-fill symbol from FuturesPanel navigation
   useEffect(() => {
     if (selectedSymbol && !symbolInput) {
-      setSymbolInput(selectedSymbol);
+      setSymbolInput(normalizeSymbol(selectedSymbol));
       setSelectedSymbol(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -185,8 +214,9 @@ export default function AIAnalysisPanel() {
   }, [context, addAnalysis, timeframe]);
 
   const analyzeSymbol = async () => {
-    const sym = symbolInput.trim().toUpperCase();
+    const sym = normalizeSymbol(symbolInput);
     if (!sym) { setError('Please enter a symbol.'); return; }
+    setSymbolInput(sym); // show normalized form in the input
     activeSymbolRef.current = sym;
     setAlertsSet(false);
     await runAnalysis(sym);

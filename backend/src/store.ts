@@ -318,11 +318,10 @@ class Store {
   addAnalysis(analysis: ChartAnalysis & { symbol?: string }): void {
     const entry = { ...analysis, id: uuidv4() } as Record<string, unknown> & { id: string };
     this.data.analysisHistory.unshift(entry);
-    // Keep only last 50 entries
     if (this.data.analysisHistory.length > 50) {
       this.data.analysisHistory = this.data.analysisHistory.slice(0, 50);
     }
-    // Note: analysis history is not persisted to disk (contains large data)
+    this.save();
   }
 
   getAnalysisHistory(): (ChartAnalysis & { symbol?: string; id: string })[] {

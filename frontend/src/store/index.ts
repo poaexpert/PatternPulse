@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type {
   ScanResult,
   Alert,
@@ -73,7 +74,7 @@ interface AppState {
   filteredResults: () => ScanResult[];
 }
 
-export const useStore = create<AppState>((set, get) => ({
+export const useStore = create<AppState>()(persist((set, get) => ({
   // Initial state
   scanResults: [],
   scanInProgress: false,
@@ -214,4 +215,10 @@ export const useStore = create<AppState>((set, get) => ({
 
     return results;
   },
+}), {
+  name: 'patternpulse-store',
+  partialize: (state) => ({
+    analysisHistory: state.analysisHistory,
+    scanFilter: state.scanFilter,
+  }),
 }));
