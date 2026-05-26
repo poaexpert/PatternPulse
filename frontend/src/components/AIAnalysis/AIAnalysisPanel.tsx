@@ -107,7 +107,7 @@ function HistoryCard({ item, onClick }: HistoryCardProps) {
 }
 
 export default function AIAnalysisPanel() {
-  const { analysisHistory, addAnalysis, setAnalysisHistory } = useStore();
+  const { analysisHistory, addAnalysis, setAnalysisHistory, selectedSymbol, setSelectedSymbol } = useStore();
 
   const [context, setContext] = useState('');
   const [symbolInput, setSymbolInput] = useState('');
@@ -135,6 +135,15 @@ export default function AIAnalysisPanel() {
   useEffect(() => {
     fetchHistory();
   }, [fetchHistory]);
+
+  // Pre-fill symbol if navigated from FuturesPanel
+  useEffect(() => {
+    if (selectedSymbol && !symbolInput) {
+      setSymbolInput(selectedSymbol);
+      setSelectedSymbol(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSymbol]);
 
   const analyzeSymbol = async () => {
     const sym = symbolInput.trim().toUpperCase();
@@ -186,7 +195,7 @@ export default function AIAnalysisPanel() {
               value={symbolInput}
               onChange={(e) => setSymbolInput(e.target.value.toUpperCase())}
               onKeyDown={(e) => e.key === 'Enter' && !isAnalyzing && analyzeSymbol()}
-              placeholder="AAPL, TSLA, ES=F…"
+              placeholder="SI=F, GC=F, ES=F, AAPL, SICN26…"
               className="flex-1 bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2 text-sm text-terminal-text-primary placeholder-terminal-text-secondary/50 focus:outline-none focus:border-terminal-cyan/50 transition-colors font-mono uppercase"
             />
             <button

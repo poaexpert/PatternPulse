@@ -3,60 +3,68 @@ import axios from 'axios';
 import { useStore } from '../../store';
 import type { FuturesQuote } from '../../types';
 
-// ── Static futures definitions ───────────────────────────────────────────────
+// ── Futures definitions ───────────────────────────────────────────────────────
 
 interface FuturesDef {
-  symbol: string;
+  symbol: string;       // Yahoo Finance symbol (=F continuous)
+  displaySymbol: string; // Clean display name
   name: string;
   category: FuturesQuote['category'];
+  unit?: string;        // price unit hint
 }
 
 const FUTURES_LIST: FuturesDef[] = [
-  // Indices
-  { symbol: 'ES=F', name: 'S&P 500 Futures', category: 'INDEX' },
-  { symbol: 'NQ=F', name: 'Nasdaq 100 Futures', category: 'INDEX' },
-  { symbol: 'YM=F', name: 'Dow Jones Futures', category: 'INDEX' },
-  { symbol: 'RTY=F', name: 'Russell 2000 Futures', category: 'INDEX' },
-  // Commodities
-  { symbol: 'CL=F', name: 'Crude Oil Futures', category: 'COMMODITY' },
-  { symbol: 'GC=F', name: 'Gold Futures', category: 'COMMODITY' },
-  { symbol: 'SI=F', name: 'Silver Futures', category: 'COMMODITY' },
-  { symbol: 'NG=F', name: 'Natural Gas Futures', category: 'COMMODITY' },
-  { symbol: 'HG=F', name: 'Copper Futures', category: 'COMMODITY' },
-  { symbol: 'BZ=F', name: 'Brent Crude Futures', category: 'COMMODITY' },
-  // Bonds
-  { symbol: 'ZN=F', name: '10-Year T-Note Futures', category: 'BOND' },
-  { symbol: 'ZB=F', name: '30-Year T-Bond Futures', category: 'BOND' },
-  // Currencies
-  { symbol: '6E=F', name: 'Euro Futures', category: 'CURRENCY' },
-  { symbol: '6J=F', name: 'Japanese Yen Futures', category: 'CURRENCY' },
-  // Crypto
-  { symbol: 'BTC=F', name: 'Bitcoin Futures', category: 'CRYPTO' },
-  { symbol: 'ETH=F', name: 'Ethereum Futures', category: 'CRYPTO' },
-  // Volatility
-  { symbol: 'VX=F', name: 'VIX Futures', category: 'VOLATILITY' },
+  // ── Precious Metals (user's primary focus) ────────────────────────────────
+  { symbol: 'SI=F',  displaySymbol: 'SI',  name: 'Silver',         category: 'COMMODITY', unit: '$/oz' },
+  { symbol: 'GC=F',  displaySymbol: 'GC',  name: 'Gold',           category: 'COMMODITY', unit: '$/oz' },
+  { symbol: 'PL=F',  displaySymbol: 'PL',  name: 'Platinum',       category: 'COMMODITY', unit: '$/oz' },
+  { symbol: 'PA=F',  displaySymbol: 'PA',  name: 'Palladium',      category: 'COMMODITY', unit: '$/oz' },
+  { symbol: 'HG=F',  displaySymbol: 'HG',  name: 'Copper',         category: 'COMMODITY', unit: '$/lb' },
+  // ── Energy ───────────────────────────────────────────────────────────────
+  { symbol: 'CL=F',  displaySymbol: 'CL',  name: 'Crude Oil (WTI)',category: 'COMMODITY', unit: '$/bbl' },
+  { symbol: 'BZ=F',  displaySymbol: 'BZ',  name: 'Brent Crude',    category: 'COMMODITY', unit: '$/bbl' },
+  { symbol: 'NG=F',  displaySymbol: 'NG',  name: 'Natural Gas',    category: 'COMMODITY', unit: '$/MMBtu' },
+  // ── Equity Index ─────────────────────────────────────────────────────────
+  { symbol: 'ES=F',  displaySymbol: 'ES',  name: 'S&P 500 E-mini', category: 'INDEX' },
+  { symbol: 'NQ=F',  displaySymbol: 'NQ',  name: 'Nasdaq E-mini',  category: 'INDEX' },
+  { symbol: 'YM=F',  displaySymbol: 'YM',  name: 'Dow Jones',      category: 'INDEX' },
+  { symbol: 'RTY=F', displaySymbol: 'RTY', name: 'Russell 2000',   category: 'INDEX' },
+  // ── Bonds ────────────────────────────────────────────────────────────────
+  { symbol: 'ZN=F',  displaySymbol: 'ZN',  name: '10-Yr T-Note',  category: 'BOND' },
+  { symbol: 'ZB=F',  displaySymbol: 'ZB',  name: '30-Yr T-Bond',  category: 'BOND' },
+  { symbol: 'ZT=F',  displaySymbol: 'ZT',  name: '2-Yr T-Note',   category: 'BOND' },
+  // ── Currencies ───────────────────────────────────────────────────────────
+  { symbol: '6E=F',  displaySymbol: '6E',  name: 'Euro',           category: 'CURRENCY' },
+  { symbol: '6J=F',  displaySymbol: '6J',  name: 'Yen',            category: 'CURRENCY' },
+  { symbol: '6B=F',  displaySymbol: '6B',  name: 'British Pound',  category: 'CURRENCY' },
+  { symbol: '6C=F',  displaySymbol: '6C',  name: 'Canadian Dollar',category: 'CURRENCY' },
+  // ── Crypto ───────────────────────────────────────────────────────────────
+  { symbol: 'BTC=F', displaySymbol: 'BTC', name: 'Bitcoin',        category: 'CRYPTO' },
+  { symbol: 'ETH=F', displaySymbol: 'ETH', name: 'Ethereum',       category: 'CRYPTO' },
+  // ── Volatility ───────────────────────────────────────────────────────────
+  { symbol: 'VX=F',  displaySymbol: 'VX',  name: 'VIX',            category: 'VOLATILITY' },
 ];
 
-const CATEGORY_LABELS: { id: FuturesQuote['category'] | 'ALL'; label: string }[] = [
-  { id: 'ALL', label: 'All' },
-  { id: 'INDEX', label: 'Indices' },
-  { id: 'COMMODITY', label: 'Commodities' },
-  { id: 'BOND', label: 'Bonds' },
-  { id: 'CURRENCY', label: 'Currencies' },
-  { id: 'CRYPTO', label: 'Crypto' },
-  { id: 'VOLATILITY', label: 'VIX' },
+const CATEGORY_LABELS: { id: FuturesQuote['category'] | 'ALL'; label: string; emoji: string }[] = [
+  { id: 'ALL',        label: 'All',        emoji: '⊞' },
+  { id: 'COMMODITY',  label: 'Metals & Energy', emoji: '🥇' },
+  { id: 'INDEX',      label: 'Indices',    emoji: '📈' },
+  { id: 'BOND',       label: 'Bonds',      emoji: '🏦' },
+  { id: 'CURRENCY',   label: 'FX',         emoji: '💱' },
+  { id: 'CRYPTO',     label: 'Crypto',     emoji: '₿' },
+  { id: 'VOLATILITY', label: 'VIX',        emoji: '⚡' },
 ];
 
 const CATEGORY_BADGE_STYLES: Record<FuturesQuote['category'], string> = {
-  INDEX: 'bg-terminal-cyan/15 text-terminal-cyan',
-  COMMODITY: 'bg-terminal-yellow/15 text-terminal-yellow',
-  BOND: 'bg-terminal-purple/15 text-terminal-purple',
-  CURRENCY: 'bg-terminal-green/15 text-terminal-green',
-  CRYPTO: 'bg-terminal-red/15 text-terminal-red',
+  COMMODITY:  'bg-terminal-yellow/15 text-terminal-yellow',
+  INDEX:      'bg-terminal-cyan/15 text-terminal-cyan',
+  BOND:       'bg-terminal-purple/15 text-terminal-purple',
+  CURRENCY:   'bg-terminal-green/15 text-terminal-green',
+  CRYPTO:     'bg-terminal-red/15 text-terminal-red',
   VOLATILITY: 'bg-terminal-border text-terminal-text-secondary',
 };
 
-// ── Quote fetch helpers ───────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 interface RawQuote {
   symbol: string;
@@ -66,48 +74,61 @@ interface RawQuote {
   volume: number;
 }
 
-async function fetchBatch(symbols: FuturesDef[]): Promise<Map<string, RawQuote>> {
-  const results = await Promise.allSettled(
-    symbols.map((def) =>
-      axios.get<RawQuote>(`/api/stock/${encodeURIComponent(def.symbol)}/quote`)
+async function loadQuoteBatch(symbols: FuturesDef[]): Promise<Map<string, RawQuote>> {
+  const settled = await Promise.allSettled(
+    symbols.map((d) =>
+      axios.get<{ success: boolean; quote: RawQuote }>(
+        `/api/stock/${encodeURIComponent(d.symbol)}/quote`
+      )
     )
   );
   const map = new Map<string, RawQuote>();
-  results.forEach((r, i) => {
+  settled.forEach((r, i) => {
     if (r.status === 'fulfilled') {
-      map.set(symbols[i].symbol, r.value.data);
+      const q = r.value.data?.quote;
+      if (q) map.set(symbols[i].symbol, q);
     }
   });
   return map;
 }
 
-async function fetchAllFutures(): Promise<Map<string, RawQuote>> {
-  const BATCH = 5;
+async function loadAllQuotes(): Promise<Map<string, RawQuote>> {
   const combined = new Map<string, RawQuote>();
+  const BATCH = 5;
   for (let i = 0; i < FUTURES_LIST.length; i += BATCH) {
-    const batch = FUTURES_LIST.slice(i, i + BATCH);
-    const partial = await fetchBatch(batch);
+    const partial = await loadQuoteBatch(FUTURES_LIST.slice(i, i + BATCH));
     partial.forEach((v, k) => combined.set(k, v));
   }
   return combined;
 }
 
-function formatVolume(vol: number): string {
-  if (vol >= 1_000_000) return `${(vol / 1_000_000).toFixed(1)}M`;
-  if (vol >= 1_000) return `${(vol / 1_000).toFixed(0)}K`;
-  return vol.toString();
+function fmtPrice(price: number, unit?: string): string {
+  if (!price) return '—';
+  const fmt =
+    price >= 10000
+      ? price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : price >= 100
+      ? price.toFixed(2)
+      : price.toFixed(4);
+  return unit ? `$${fmt}` : `$${fmt}`;
 }
 
-function formatPrice(price: number): string {
-  if (price === 0) return '—';
-  if (price >= 10000) return price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  if (price >= 100) return price.toFixed(2);
-  return price.toFixed(4);
+function fmtVol(v: number): string {
+  if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+  if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`;
+  return v.toString();
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+function timeAgo(d: Date): string {
+  const s = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  return `${Math.floor(s / 3600)}h ago`;
+}
 
-interface FuturesCardProps {
+// ── FuturesCard ───────────────────────────────────────────────────────────────
+
+interface CardProps {
   def: FuturesDef;
   quote: RawQuote | null;
   loading: boolean;
@@ -116,59 +137,73 @@ interface FuturesCardProps {
   inWatchlist: boolean;
 }
 
-function FuturesCard({ def, quote, loading, onAnalyze, onWatch, inWatchlist }: FuturesCardProps) {
-  const positive = (quote?.change ?? 0) >= 0;
-  const priceColor = positive ? 'text-terminal-green' : 'text-terminal-red';
-  const changeBg = positive ? 'bg-terminal-green/10 text-terminal-green' : 'bg-terminal-red/10 text-terminal-red';
+function FuturesCard({ def, quote, loading, onAnalyze, onWatch, inWatchlist }: CardProps) {
+  const up = (quote?.change ?? 0) >= 0;
+  const priceColor = up ? 'text-terminal-green' : 'text-terminal-red';
+  const changeBg = up
+    ? 'bg-terminal-green/10 text-terminal-green border-terminal-green/20'
+    : 'bg-terminal-red/10 text-terminal-red border-terminal-red/20';
+
+  const arrowIcon = up ? '▲' : '▼';
 
   return (
-    <div className="bg-terminal-card border border-terminal-border rounded-xl p-4 flex flex-col gap-3 hover:border-terminal-border/80 transition-colors">
-      {/* Header row */}
+    <div className={`bg-terminal-card border rounded-xl p-4 flex flex-col gap-3 transition-colors hover:border-terminal-border/80 ${
+      def.category === 'COMMODITY' && (def.displaySymbol === 'SI' || def.displaySymbol === 'GC' || def.displaySymbol === 'PL')
+        ? 'border-terminal-yellow/30'
+        : 'border-terminal-border'
+    }`}>
+      {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-sm font-bold text-terminal-text-primary font-mono truncate">{def.symbol}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-bold text-terminal-text-primary font-mono">{def.displaySymbol}</p>
+            {(def.displaySymbol === 'SI' || def.displaySymbol === 'GC') && (
+              <span className="text-[10px] px-1 py-0.5 rounded bg-terminal-yellow/20 text-terminal-yellow border border-terminal-yellow/30 font-bold">
+                {def.displaySymbol === 'SI' ? '🥈' : '🥇'}
+              </span>
+            )}
+          </div>
           <p className="text-[11px] text-terminal-text-secondary truncate mt-0.5">{def.name}</p>
+          {def.unit && <p className="text-[10px] text-terminal-text-secondary/60">{def.unit}</p>}
         </div>
         <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded ${CATEGORY_BADGE_STYLES[def.category]}`}>
           {def.category}
         </span>
       </div>
 
-      {/* Price row */}
+      {/* Price */}
       <div>
         {loading ? (
           <div className="space-y-1.5">
-            <div className="h-6 w-28 bg-terminal-border/40 rounded animate-pulse" />
-            <div className="h-4 w-20 bg-terminal-border/30 rounded animate-pulse" />
+            <div className="h-7 w-32 bg-terminal-border/40 rounded animate-pulse" />
+            <div className="h-4 w-24 bg-terminal-border/30 rounded animate-pulse" />
           </div>
-        ) : quote ? (
+        ) : quote && quote.price > 0 ? (
           <>
-            <p className={`text-xl font-bold tabular-nums ${priceColor}`}>
-              ${formatPrice(quote.price)}
+            <p className={`text-2xl font-bold tabular-nums font-mono ${priceColor}`}>
+              {fmtPrice(quote.price, def.unit)}
             </p>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className={`text-xs font-semibold tabular-nums px-1.5 py-0.5 rounded ${changeBg}`}>
-                {positive ? '+' : ''}{quote.change.toFixed(2)} ({positive ? '+' : ''}{quote.changePercent.toFixed(2)}%)
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`text-xs font-semibold tabular-nums px-1.5 py-0.5 rounded border ${changeBg}`}>
+                {arrowIcon} {Math.abs(quote.change).toFixed(2)} ({up ? '+' : ''}{quote.changePercent.toFixed(2)}%)
               </span>
             </div>
             {quote.volume > 0 && (
-              <p className="text-[11px] text-terminal-text-secondary mt-1">
-                Vol: {formatVolume(quote.volume)}
-              </p>
+              <p className="text-[11px] text-terminal-text-secondary mt-1">Vol {fmtVol(quote.volume)}</p>
             )}
           </>
         ) : (
-          <p className="text-sm text-terminal-text-secondary">No data</p>
+          <p className="text-sm text-terminal-text-secondary italic">Fetching…</p>
         )}
       </div>
 
       {/* Action buttons */}
-      <div className="flex gap-2 mt-auto pt-1 border-t border-terminal-border/50">
+      <div className="flex gap-2 mt-auto pt-2 border-t border-terminal-border/40">
         <button
           onClick={() => onAnalyze(def.symbol)}
-          className="flex-1 text-[11px] font-semibold px-2 py-1.5 rounded-lg bg-terminal-cyan/10 text-terminal-cyan border border-terminal-cyan/20 hover:bg-terminal-cyan/20 transition-colors"
+          className="flex-1 text-[11px] font-semibold px-2 py-1.5 rounded-lg bg-terminal-cyan/10 text-terminal-cyan border border-terminal-cyan/25 hover:bg-terminal-cyan/20 transition-colors"
         >
-          Analyze
+          📊 Analyze
         </button>
         <button
           onClick={() => onWatch(def.symbol, def.name)}
@@ -186,68 +221,87 @@ function FuturesCard({ def, quote, loading, onAnalyze, onWatch, inWatchlist }: F
   );
 }
 
-// ── Main Component ────────────────────────────────────────────────────────────
+// ── Symbol input for custom contracts ────────────────────────────────────────
+
+function CustomSymbolInput({ onAnalyze }: { onAnalyze: (sym: string) => void }) {
+  const [val, setVal] = useState('');
+  return (
+    <div className="bg-terminal-card border border-terminal-border rounded-xl p-4">
+      <p className="text-xs font-semibold text-terminal-text-secondary uppercase tracking-wider mb-2">
+        Analyze any futures symbol
+      </p>
+      <div className="flex gap-2">
+        <input
+          value={val}
+          onChange={(e) => setVal(e.target.value.toUpperCase())}
+          onKeyDown={(e) => { if (e.key === 'Enter' && val.trim()) { onAnalyze(val.trim()); setVal(''); } }}
+          placeholder="SI=F, GC=F, SICN26, SIN26.CMX…"
+          className="flex-1 bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2 text-sm text-terminal-text-primary placeholder-terminal-text-secondary/50 focus:outline-none focus:border-terminal-cyan/50 font-mono uppercase"
+        />
+        <button
+          onClick={() => { if (val.trim()) { onAnalyze(val.trim()); setVal(''); } }}
+          disabled={!val.trim()}
+          className="px-4 py-2 rounded-lg bg-terminal-cyan text-terminal-bg font-semibold text-sm hover:bg-terminal-cyan/90 disabled:opacity-40"
+        >
+          Analyze
+        </button>
+      </div>
+      <p className="text-[10px] text-terminal-text-secondary mt-1.5">
+        Supports: continuous (SI=F, GC=F), broker format (SICN26 → SIN26.CMX), specific month (SIN26.CMX)
+      </p>
+    </div>
+  );
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function FuturesPanel() {
-  const { addToWatchlist, watchlist, setActiveView } = useStore();
+  const { addToWatchlist, watchlist, setActiveView, setSelectedSymbol } = useStore();
 
-  const [activeCategory, setActiveCategory] = useState<FuturesQuote['category'] | 'ALL'>('ALL');
+  const [activeCategory, setActiveCategory] = useState<FuturesQuote['category'] | 'ALL'>('COMMODITY');
   const [quotes, setQuotes] = useState<Map<string, RawQuote>>(new Map());
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const loadQuotes = useCallback(async () => {
+  const refresh = useCallback(async () => {
     try {
-      const data = await fetchAllFutures();
+      const data = await loadAllQuotes();
       setQuotes(data);
       setLastUpdated(new Date());
-      setError(null);
-    } catch {
-      setError('Failed to fetch futures data.');
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadQuotes();
-    intervalRef.current = setInterval(loadQuotes, 60_000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [loadQuotes]);
+    refresh();
+    intervalRef.current = setInterval(refresh, 60_000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [refresh]);
 
-  const handleAnalyze = useCallback(
-    (symbol: string) => {
-      // Switch to AI Analysis and pre-fill symbol
-      // We store it in localStorage so AIAnalysisPanel can pick it up if needed
-      localStorage.setItem('pp_analyze_symbol', symbol);
-      setActiveView('ai-analysis');
-    },
-    [setActiveView]
-  );
+  const handleAnalyze = useCallback((symbol: string) => {
+    // Store in Zustand so AIAnalysisPanel can pre-fill it
+    setSelectedSymbol(symbol);
+    setActiveView('ai-analysis');
+  }, [setActiveView, setSelectedSymbol]);
 
-  const handleWatch = useCallback(
-    (symbol: string, name: string) => {
-      addToWatchlist({
-        symbol,
-        name,
-        addedAt: new Date().toISOString(),
-      });
-    },
-    [addToWatchlist]
-  );
+  const handleWatch = useCallback((symbol: string, name: string) => {
+    addToWatchlist({ symbol, name, addedAt: new Date().toISOString() });
+  }, [addToWatchlist]);
 
-  const watchlistSymbols = new Set(watchlist.map((w) => w.symbol));
+  const watchlistSet = new Set(watchlist.map((w) => w.symbol));
 
-  const filteredFutures =
+  const filtered =
     activeCategory === 'ALL'
       ? FUTURES_LIST
       : FUTURES_LIST.filter((f) => f.category === activeCategory);
 
-  const totalLoaded = quotes.size;
+  // Metals snapshot for the top bar
+  const metals = ['SI=F', 'GC=F', 'PL=F', 'HG=F'];
+  const metalQuotes = metals
+    .map((s) => ({ def: FUTURES_LIST.find((f) => f.symbol === s)!, quote: quotes.get(s) ?? null }))
+    .filter((x) => x.def);
 
   return (
     <div className="space-y-4">
@@ -259,12 +313,12 @@ export default function FuturesPanel() {
             {loading
               ? 'Loading quotes…'
               : lastUpdated
-              ? `Updated ${lastUpdated.toLocaleTimeString()} · ${totalLoaded}/${FUTURES_LIST.length} loaded · auto-refreshes every 60s`
+              ? `Updated ${timeAgo(lastUpdated)} · auto-refreshes every 60s`
               : 'Live futures quotes'}
           </p>
         </div>
         <button
-          onClick={() => { setLoading(true); loadQuotes(); }}
+          onClick={() => { setLoading(true); refresh(); }}
           disabled={loading}
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-terminal-border bg-terminal-card text-terminal-text-secondary hover:text-terminal-text-primary hover:border-terminal-cyan/40 transition-colors disabled:opacity-40"
         >
@@ -276,39 +330,54 @@ export default function FuturesPanel() {
         </button>
       </div>
 
-      {/* Error banner */}
-      {error && (
-        <div className="rounded-lg bg-terminal-yellow/10 border border-terminal-yellow/25 px-3 py-2 text-sm text-terminal-yellow flex items-center gap-2">
-          <span>⚠</span>
-          <span>{error}</span>
-        </div>
-      )}
+      {/* Precious Metals Top Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {metalQuotes.map(({ def, quote }) => {
+          const up = (quote?.change ?? 0) >= 0;
+          return (
+            <button
+              key={def.symbol}
+              onClick={() => handleAnalyze(def.symbol)}
+              className="bg-terminal-card border border-terminal-yellow/20 rounded-lg px-3 py-2.5 text-left hover:border-terminal-yellow/50 transition-colors group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-terminal-yellow font-mono">{def.displaySymbol}</span>
+                <span className="text-[10px] text-terminal-text-secondary group-hover:text-terminal-cyan">Analyze →</span>
+              </div>
+              <p className={`text-base font-bold tabular-nums font-mono mt-0.5 ${up ? 'text-terminal-green' : 'text-terminal-red'}`}>
+                {quote ? fmtPrice(quote.price) : loading ? '…' : '—'}
+              </p>
+              <p className={`text-[11px] tabular-nums ${up ? 'text-terminal-green' : 'text-terminal-red'}`}>
+                {quote ? `${up ? '▲' : '▼'} ${Math.abs(quote.changePercent).toFixed(2)}%` : ''}
+              </p>
+            </button>
+          );
+        })}
+      </div>
 
-      {/* Category Filter Tabs */}
+      {/* Custom symbol input */}
+      <CustomSymbolInput onAnalyze={handleAnalyze} />
+
+      {/* Category tabs */}
       <div className="flex flex-wrap gap-1.5">
-        {CATEGORY_LABELS.map(({ id, label }) => (
+        {CATEGORY_LABELS.map(({ id, label, emoji }) => (
           <button
             key={id}
             onClick={() => setActiveCategory(id)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
               activeCategory === id
                 ? 'bg-terminal-cyan/15 text-terminal-cyan border border-terminal-cyan/25'
-                : 'bg-terminal-card border border-terminal-border text-terminal-text-secondary hover:text-terminal-text-primary hover:border-terminal-border/80'
+                : 'bg-terminal-card border border-terminal-border text-terminal-text-secondary hover:text-terminal-text-primary'
             }`}
           >
-            {label}
-            <span className="ml-1.5 text-[10px] opacity-70">
-              {id === 'ALL'
-                ? FUTURES_LIST.length
-                : FUTURES_LIST.filter((f) => f.category === id).length}
-            </span>
+            {emoji} {label}
           </button>
         ))}
       </div>
 
-      {/* Futures Grid */}
+      {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        {filteredFutures.map((def) => (
+        {filtered.map((def) => (
           <FuturesCard
             key={def.symbol}
             def={def}
@@ -316,16 +385,10 @@ export default function FuturesPanel() {
             loading={loading && !quotes.has(def.symbol)}
             onAnalyze={handleAnalyze}
             onWatch={handleWatch}
-            inWatchlist={watchlistSymbols.has(def.symbol)}
+            inWatchlist={watchlistSet.has(def.symbol)}
           />
         ))}
       </div>
-
-      {filteredFutures.length === 0 && (
-        <div className="text-center py-12 text-terminal-text-secondary text-sm">
-          No futures in this category.
-        </div>
-      )}
     </div>
   );
 }
