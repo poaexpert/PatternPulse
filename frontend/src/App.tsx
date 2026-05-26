@@ -108,11 +108,20 @@ export default function App() {
         } catch { /* non-fatal */ }
       }
 
-      // Market: { success, overview: { spyChange, qqqChange, ... } }
+      // Market: { success, overview: { spyChange, qqqChange, marketStatus, ... } }
       if (marketRes.status === 'fulfilled') {
         try {
           const overview = unwrap(marketRes.value.data, 'overview');
-          if (overview && typeof overview === 'object') setMarketStatus(overview);
+          if (overview && typeof overview === 'object') {
+            // Backend returns `marketStatus` field; frontend type expects `status`
+            setMarketStatus({
+              status: overview.marketStatus ?? overview.status ?? 'CLOSED',
+              spyChange: overview.spyChange ?? 0,
+              qqqChange: overview.qqqChange ?? 0,
+              iwmChange: overview.iwmChange ?? 0,
+              vixLevel: overview.vixLevel ?? 0,
+            });
+          }
         } catch { /* non-fatal */ }
       }
 
