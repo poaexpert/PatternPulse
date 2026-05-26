@@ -11,6 +11,7 @@ import type {
   ScanType,
   AlertHistoryItem,
   ChartAnalysis,
+  JournalEntry,
 } from '../types';
 
 interface ScanFilter {
@@ -44,6 +45,9 @@ interface AppState {
   // AI Analysis
   analysisHistory: ChartAnalysis[];
 
+  // Trade Journal
+  journal: JournalEntry[];
+
   // UI
   activeView: ActiveView;
   selectedSymbol: string | null;
@@ -64,6 +68,10 @@ interface AppState {
   setNotificationSettings: (s: NotificationSettings) => void;
   setAnalysisHistory: (history: ChartAnalysis[]) => void;
   addAnalysis: (analysis: ChartAnalysis) => void;
+  setJournal: (entries: JournalEntry[]) => void;
+  addJournalEntry: (entry: JournalEntry) => void;
+  updateJournalEntry: (id: string, updates: Partial<JournalEntry>) => void;
+  removeJournalEntry: (id: string) => void;
   setActiveView: (v: ActiveView) => void;
   setSelectedSymbol: (s: string | null) => void;
   setIsInitialLoading: (v: boolean) => void;
@@ -92,6 +100,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
   watchlist: [],
   notificationSettings: null,
   analysisHistory: [],
+  journal: [],
   activeView: 'dashboard',
   selectedSymbol: null,
   isInitialLoading: true,
@@ -144,6 +153,19 @@ export const useStore = create<AppState>()(persist((set, get) => ({
     set((state) => ({
       analysisHistory: [analysis, ...state.analysisHistory].slice(0, 50),
     })),
+
+  setJournal: (entries) => set({ journal: entries }),
+
+  addJournalEntry: (entry) =>
+    set((state) => ({ journal: [entry, ...state.journal] })),
+
+  updateJournalEntry: (id, updates) =>
+    set((state) => ({
+      journal: state.journal.map((e) => e.id === id ? { ...e, ...updates } : e),
+    })),
+
+  removeJournalEntry: (id) =>
+    set((state) => ({ journal: state.journal.filter((e) => e.id !== id) })),
 
   setActiveView: (v) => set({ activeView: v }),
 

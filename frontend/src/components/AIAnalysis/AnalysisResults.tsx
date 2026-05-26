@@ -3,6 +3,164 @@ import axios from 'axios';
 import type { ChartAnalysis } from '../../types';
 import CandlestickChart from '../Chart/CandlestickChart';
 
+// ── News ──────────────────────────────────────────────────────────────────────
+
+interface NewsItem { title: string; link: string; pubDate: string; source: string; summary: string; }
+
+function NewsPanel({ symbol }: { symbol: string }) {
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    axios.get<{ news: NewsItem[] }>(`/api/stock/${encodeURIComponent(symbol)}/news`)
+      .then(({ data }) => { setNews(data.news ?? []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [symbol]);
+
+  if (loading) return (
+    <div className="bg-terminal-card border border-terminal-border rounded-lg p-4">
+      <h3 className="text-xs font-semibold text-terminal-text-secondary uppercase tracking-widest mb-3">News</h3>
+      <p className="text-xs text-terminal-text-secondary animate-pulse">Loading headlines…</p>
+    </div>
+  );
+
+  if (news.length === 0) return null;
+
+  const fmtDate = (s: string) => { try { return new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch { return s; } };
+
+  return (
+    <div className="bg-terminal-card border border-terminal-border rounded-lg p-4">
+      <h3 className="text-xs font-semibold text-terminal-text-secondary uppercase tracking-widest mb-3">Latest News</h3>
+      <div className="space-y-2">
+        {news.map((item, i) => (
+          <a key={i} href={item.link} target="_blank" rel="noopener noreferrer"
+            className="block bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2.5 hover:border-terminal-cyan/40 transition-colors group">
+            <p className="text-xs font-medium text-terminal-text-primary group-hover:text-terminal-cyan transition-colors leading-snug">{item.title}</p>
+            {item.summary && <p className="text-[10px] text-terminal-text-secondary mt-1 line-clamp-2">{item.summary}</p>}
+            <p className="text-[10px] text-terminal-text-secondary/60 mt-1">{fmtDate(item.pubDate)} · {item.source}</p>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Trading strategies ────────────────────────────────────────────────────────
+
+function TradingStrategies({ analysis }: { analysis: ChartAnalysis }) {
+  const { swingSetup, trend, indicators, patterns, signalStrength, topBottomSignal, keyLevels, currentPrice } = analysis;
+  const dir = swingSetup.direction;
+  const isLong = dir === 'LONG';
+
+  const strategies: { name: string; type: string; description: string; risk: string; riskColor: string }[] = [];
+  const fmt = (n: number | null) => n == null ? '—' : `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  if (swingSetup.exists && dir !== 'NONE' && swingSetup.entry) {
+    strategies.push({
+      name: `${isLong ? '▲' : '▼'} Primary Swing`,
+      type: dir,
+      description: `${swingSetup.description} Entry: ${fmt(swingSetup.entry)} | Stop: ${fmt(swingSetup.stopLoss)} | T1: ${fmt(swingSetup.target1)} | T2: ${fmt(swingSetup.target2)} | R:R 1:${swingSetup.riskReward?.toFixed(1) ?? '?'}`,
+      risk: swingSetup.riskReward && swingSetup.riskReward >= 2 ? 'Low Risk' : 'Medium Risk',
+      riskColor: swingSetup.riskReward && swingSetup.riskReward >= 2 ? 'text-terminal-green' : 'text-terminal-yellow',
+    });
+  }
+
+  if (indicators.rsiSignal === 'OVERSOLD') {
+    strategies.push({
+      name: '📈 RSI Bounce',
+      type: 'LONG',
+      description: `RSI oversold — watch for reversal candle above ${keyLevels.support[0] ? fmt(keyLevels.support[0]) : 'nearest support'}. Enter on confirmation, stop below the low.`,
+      risk: 'Medium Risk',
+      riskColor: 'text-terminal-yellow',
+    });
+  }
+
+  if (indicators.rsiSignal === 'OVERBOUGHT') {
+    strategies.push({
+      name: '📉 RSI Fade',
+      type: 'SHORT',
+      description: `RSI overbought — fade the move at ${keyLevels.resistance[0] ? fmt(keyLevels.resistance[0]) : 'resistance'}. Stop above the high.`,
+      risk: 'Medium Risk',
+      riskColor: 'text-terminal-yellow',
+    });
+  }
+
+  const bullP = patterns.find((p) => p.implication === 'BULLISH' && p.completion !== 'PARTIAL');
+  if (bullP) {
+    strategies.push({
+      name: `📊 ${bullP.name}`,
+      type: 'LONG',
+      description: `${bullP.completion} bullish pattern. ${bullP.target ? `Target: ${fmt(bullP.target)}.` : ''} Enter above the high, stop below the low.`,
+      risk: 'Medium Risk',
+      riskColor: 'text-terminal-yellow',
+    });
+  }
+
+  const bearP = patterns.find((p) => p.implication === 'BEARISH' && p.completion !== 'PARTIAL');
+  if (bearP) {
+    strategies.push({
+      name: `📊 ${bearP.name}`,
+      type: 'SHORT',
+      description: `${bearP.completion} bearish pattern. ${bearP.target ? `Target: ${fmt(bearP.target)}.` : ''} Short below the low, stop above the high.`,
+      risk: 'Medium Risk',
+      riskColor: 'text-terminal-yellow',
+    });
+  }
+
+  if (trend.strength === 'STRONG' && signalStrength >= 7) {
+    strategies.push({
+      name: '🔥 Trend Ride',
+      type: trend.direction === 'UP' ? 'LONG' : 'SHORT',
+      description: `Strong ${trend.direction} trend (${signalStrength}/10). Add on EMA20 pullbacks, stop below EMA50. Trail stop as it moves.`,
+      risk: 'Low Risk',
+      riskColor: 'text-terminal-green',
+    });
+  }
+
+  if (topBottomSignal.type !== 'NONE' && topBottomSignal.confidence === 'HIGH') {
+    strategies.push({
+      name: topBottomSignal.type === 'TOP' ? '⚠ Top Fade' : '🔄 Bottom Reversal',
+      type: topBottomSignal.type === 'TOP' ? 'SHORT' : 'LONG',
+      description: `${topBottomSignal.reasoning} Tight stop, aggressive target.`,
+      risk: 'High Risk',
+      riskColor: 'text-terminal-red',
+    });
+  }
+
+  if (strategies.length === 0) {
+    strategies.push({
+      name: '⏳ Wait for Clarity',
+      type: 'NEUTRAL',
+      description: `Signal strength ${signalStrength}/10 — not enough edge. Wait for RSI extreme, MACD cross, or cleaner pattern before entering.`,
+      risk: 'Low Risk',
+      riskColor: 'text-terminal-green',
+    });
+  }
+
+  return (
+    <div className="bg-terminal-card border border-terminal-border rounded-lg p-4">
+      <h3 className="text-xs font-semibold text-terminal-text-secondary uppercase tracking-widest mb-3">Trade Ideas</h3>
+      <div className="space-y-2">
+        {strategies.map((s, i) => (
+          <div key={i} className={`rounded-lg px-3 py-3 border ${
+            s.type === 'LONG' ? 'border-terminal-green/20 bg-terminal-green/5' :
+            s.type === 'SHORT' ? 'border-terminal-red/20 bg-terminal-red/5' :
+            'border-terminal-border bg-terminal-bg/50'
+          }`}>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <span className="text-xs font-bold text-terminal-text-primary">{s.name}</span>
+              <span className={`text-[10px] font-semibold ${s.riskColor}`}>{s.risk}</span>
+            </div>
+            <p className="text-[11px] text-terminal-text-secondary leading-relaxed">{s.description}</p>
+          </div>
+        ))}
+      </div>
+      {currentPrice != null && <p className="text-[10px] text-terminal-text-secondary/60 mt-2">At ${currentPrice.toFixed(2)} · Not financial advice.</p>}
+    </div>
+  );
+}
+
 interface AnalysisResultsProps {
   analysis: ChartAnalysis;
   timeframe?: string;
@@ -504,13 +662,21 @@ export default function AnalysisResults({ analysis, timeframe = '1d' }: Analysis
         </div>
       )}
 
-      {/* 9. Side plays */}
+      {/* 9. Trade Ideas */}
+      <TradingStrategies analysis={analysis} />
+
+      {/* 10. Side plays */}
       <SidePlays
         symbol={resolvedSymbol ?? symbol ?? ''}
         direction={swingSetup?.direction ?? 'NONE'}
       />
 
-      {/* 10. Summary */}
+      {/* 11. News */}
+      {(resolvedSymbol ?? symbol) && (
+        <NewsPanel symbol={resolvedSymbol ?? symbol ?? ''} />
+      )}
+
+      {/* 12. Summary */}
       {summary && (
         <div className="rounded-lg border border-terminal-cyan/20 bg-terminal-cyan/5 px-4 py-3">
           <p className="text-[10px] font-semibold text-terminal-cyan uppercase tracking-widest mb-2">Summary</p>

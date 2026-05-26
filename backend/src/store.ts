@@ -1,4 +1,4 @@
-import { StoreData, Alert, WatchlistItem, NotificationSettings, ScanResult, ScanType } from './types';
+import { StoreData, Alert, WatchlistItem, NotificationSettings, ScanResult, ScanType, JournalEntry } from './types';
 import { ChartAnalysis } from './analysis/claude';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -48,6 +48,7 @@ const DEFAULT_STORE: StoreData = {
   scanInProgress: false,
   alertHistory: [],
   analysisHistory: [],
+  journal: [],
 };
 
 class Store {
@@ -330,6 +331,34 @@ class Store {
 
   clearAnalysisHistory(): void {
     this.data.analysisHistory = [];
+  }
+
+  // ─── Trade Journal ───────────────────────────────────────────────────────
+  getJournal(): JournalEntry[] {
+    return this.data.journal ?? [];
+  }
+
+  addJournalEntry(entry: Omit<JournalEntry, 'id' | 'createdAt'>): JournalEntry {
+    const newEntry: JournalEntry = { ...entry, id: uuidv4(), createdAt: new Date().toISOString() };
+    if (!this.data.journal) this.data.journal = [];
+    this.data.journal.unshift(newEntry);
+    this.save();
+    return newEntry;
+  }
+
+  updateJournalEntry(id: string, updates: Partial<JournalEntry>): JournalEntry | null {
+    const idx = (this.data.journal ?? []).findIndex((e) => e.id === id);
+    if (idx === -1) return null;
+    this.data.journal[idx] = { ...this.data.journal[idx], ...updates };
+    this.save();
+    return this.data.journal[idx];
+  }
+
+  deleteJournalEntry(id: string): boolean {
+    const before = (this.data.journal ?? []).length;
+    this.data.journal = (this.data.journal ?? []).filter((e) => e.id !== id);
+    if (this.data.journal.length !== before) { this.save(); return true; }
+    return false;
   }
 }
 

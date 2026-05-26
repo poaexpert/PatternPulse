@@ -139,8 +139,9 @@ export function startScheduler(): void {
 
     const settings = store.getNotificationSettings();
     if (settings.telegram.enabled && settings.telegram.chatId) {
-      const results = store.getScanResults();
-      await sendMarketOpenBrief(settings.telegram.chatId, results);
+      const watchedSymbols = new Set(store.getWatchlist().map((w) => w.symbol.toUpperCase()));
+      const results = store.getScanResults().filter((r) => watchedSymbols.has(r.symbol.toUpperCase())).slice(0, 5);
+      if (results.length > 0) await sendMarketOpenBrief(settings.telegram.chatId, results);
     }
   }, {
     timezone: 'America/New_York',
@@ -151,8 +152,9 @@ export function startScheduler(): void {
     log('Scheduler: market close — sending summary');
     const settings = store.getNotificationSettings();
     if (settings.telegram.enabled && settings.telegram.chatId) {
-      const results = store.getScanResults();
-      await sendMarketCloseSummary(settings.telegram.chatId, results);
+      const watchedSymbols = new Set(store.getWatchlist().map((w) => w.symbol.toUpperCase()));
+      const results = store.getScanResults().filter((r) => watchedSymbols.has(r.symbol.toUpperCase())).slice(0, 5);
+      if (results.length > 0) await sendMarketCloseSummary(settings.telegram.chatId, results);
     }
   }, {
     timezone: 'America/New_York',

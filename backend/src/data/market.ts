@@ -183,11 +183,11 @@ async function fetchStooqBatchQuotes(symbols: string[]): Promise<QuoteData[]> {
 }
 
 // Fetch historical bars from Stooq
-async function fetchStooqBars(symbol: string, period: '1mo' | '3mo' | '6mo' | '1y'): Promise<OHLCVBar[]> {
+async function fetchStooqBars(symbol: string, period: '1mo' | '3mo' | '6mo' | '1y' | '2y' | '5y' | 'max'): Promise<OHLCVBar[]> {
   const stooqSym = toStooqSymbol(symbol);
   if (!stooqSym) return [];
 
-  const days = period === '1mo' ? 35 : period === '3mo' ? 95 : period === '6mo' ? 185 : 370;
+  const days = period === '1mo' ? 35 : period === '3mo' ? 95 : period === '6mo' ? 185 : period === '1y' ? 370 : period === '2y' ? 740 : period === '5y' ? 1830 : 7300;
   const to = new Date();
   const from = new Date(Date.now() - days * 86400000);
   const fmt = (d: Date) =>
@@ -591,7 +591,7 @@ export async function fetchBatchQuotes(symbols: string[]): Promise<QuoteData[]> 
 
 export async function fetchHistoricalData(
   symbol: string,
-  period: '1mo' | '3mo' | '6mo' | '1y' = '3mo'
+  period: '1mo' | '3mo' | '6mo' | '1y' | '2y' | '5y' | 'max' = '3mo'
 ): Promise<OHLCVBar[]> {
   // 1. Stooq (primary — works on cloud)
   try {
@@ -630,6 +630,54 @@ export async function fetchHistoricalData(
   }
 
   logError(`All data sources failed for ${symbol}`, null);
+  return [];
+}
+
+export interface NewsItem {
+  title: string;
+  link: string;
+  pubDate: string;
+  source: string;
+  summary: string;
+}
+
+export async function fetchNews(symbol: string): Promise<NewsItem[]> {
+  const stooqSym = toStooqSymbol(symbol) ?? symbol.toLowerCase().replace('=f', '.f');
+  const sources = [
+    `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${encodeURIComponent(symbol)}&region=US&lang=en-US`,
+    `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${encodeURIComponent(stooqSym)}&region=US&lang=en-US`,
+  ];
+
+  for (const url of sources) {
+    try {
+      const res = await axios.get(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+        timeout: 8000,
+        responseType: 'text',
+      });
+      const xml: string = res.data ?? '';
+      const items: NewsItem[] = [];
+
+      // Simple XML parser — no external lib needed
+      const itemBlocks = xml.match(/<item>([\s\S]*?)<\/item>/g) ?? [];
+      for (const block of itemBlocks.slice(0, 10)) {
+        const tag = (name: string) => {
+          const m = block.match(new RegExp(`<${name}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${name}>|<${name}[^>]*>([^<]*)<\\/${name}>`));
+          return (m?.[1] ?? m?.[2] ?? '').trim();
+        };
+        const title = tag('title');
+        const link = tag('link') || tag('guid');
+        const pubDate = tag('pubDate');
+        const desc = tag('description');
+        if (title && link) {
+          items.push({ title, link, pubDate, source: 'Yahoo Finance', summary: desc.replace(/<[^>]+>/g, '').slice(0, 200) });
+        }
+      }
+      if (items.length > 0) return items;
+    } catch {
+      // try next source
+    }
+  }
   return [];
 }
 

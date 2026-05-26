@@ -11,6 +11,7 @@ import WatchlistPanel from './components/Watchlist/WatchlistPanel';
 import NotificationSettings from './components/Settings/NotificationSettings';
 import AIAnalysisPanel from './components/AIAnalysis/AIAnalysisPanel';
 import FuturesPanel from './components/Futures/FuturesPanel';
+import TradeJournal from './components/Journal/TradeJournal';
 import type { ScanResult, Alert, WatchlistItem, NotificationSettings as NS } from './types';
 
 function LoadingScreen() {
@@ -151,6 +152,7 @@ export default function App() {
       case 'settings':     return <NotificationSettings />;
       case 'ai-analysis':  return <AIAnalysisPanel />;
       case 'futures':      return <FuturesPanel />;
+      case 'journal':      return <TradeJournal />;
       default:             return <Dashboard />;
     }
   };

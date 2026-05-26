@@ -132,6 +132,26 @@ export interface MarketOverview {
   mostActive: ScanResult[];
 }
 
+export interface JournalEntry {
+  id: string;
+  symbol: string;
+  direction: 'LONG' | 'SHORT';
+  status: 'OPEN' | 'CLOSED' | 'CANCELLED';
+  entryPrice: number | null;
+  exitPrice: number | null;
+  stopLoss: number | null;
+  target: number | null;
+  size: number | null;
+  entryDate: string;
+  exitDate: string | null;
+  pnl: number | null;
+  pnlPercent: number | null;
+  setup: string;
+  notes: string;
+  tags: string[];
+  createdAt: string;
+}
+
 export interface StoreData {
   scanResults: ScanResult[];
   alerts: Alert[];
@@ -140,6 +160,6 @@ export interface StoreData {
   lastScanTime: Date | null;
   scanInProgress: boolean;
   alertHistory: { id: string; symbol: string; message: string; timestamp: Date }[];
-  // Analysis history is typed loosely here to avoid circular import; actual type enforced in store.ts
   analysisHistory: (Record<string, unknown> & { id: string })[];
+  journal: JournalEntry[];
 }

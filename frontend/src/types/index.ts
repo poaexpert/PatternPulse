@@ -116,7 +116,27 @@ export interface MarketStatus {
   vixLevel: number;
 }
 
-export type ActiveView = 'dashboard' | 'scanner' | 'alerts' | 'watchlist' | 'settings' | 'ai-analysis' | 'futures';
+export type ActiveView = 'dashboard' | 'scanner' | 'alerts' | 'watchlist' | 'settings' | 'ai-analysis' | 'futures' | 'journal';
+
+export interface JournalEntry {
+  id: string;
+  symbol: string;
+  direction: 'LONG' | 'SHORT';
+  status: 'OPEN' | 'CLOSED' | 'CANCELLED';
+  entryPrice: number | null;
+  exitPrice: number | null;
+  stopLoss: number | null;
+  target: number | null;
+  size: number | null;
+  entryDate: string;
+  exitDate: string | null;
+  pnl: number | null;
+  pnlPercent: number | null;
+  setup: string;
+  notes: string;
+  tags: string[];
+  createdAt: string;
+}
 
 export interface ChartAnalysis {
   currentPrice?: number;

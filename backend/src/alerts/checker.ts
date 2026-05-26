@@ -233,7 +233,12 @@ export async function broadcastStrongSignals(scanResults: ScanResult[]): Promise
 
   const maxPerHour = settings.maxAlertsPerHour ?? 20;
 
+  // Only broadcast for watchlisted (starred) symbols
+  const watchlist = store.getWatchlist();
+  const watchedSymbols = new Set(watchlist.map((w) => w.symbol.toUpperCase()));
+
   const matching = scanResults.filter((r) => {
+    if (!watchedSymbols.has(r.symbol.toUpperCase())) return false; // only starred
     if (r.strength < filters.minStrength) return false;
     if (r.volumeRatio < filters.minVolumeRatio) return false;
     if (r.price < filters.minPrice || r.price > filters.maxPrice) return false;

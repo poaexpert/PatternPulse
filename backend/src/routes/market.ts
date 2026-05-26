@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { fetchBatchQuotes, fetchHistoricalData, fetchIntradayBars, fetchMarketOverview } from '../data/market';
+import { fetchBatchQuotes, fetchHistoricalData, fetchIntradayBars, fetchMarketOverview, fetchNews } from '../data/market';
 import { store } from '../store';
 import * as indicators from '../indicators';
 import { logError } from '../utils/logger';
@@ -111,10 +111,10 @@ router.get('/stock/:symbol/quote', async (req: Request, res: Response) => {
  */
 router.get('/stock/:symbol/history', async (req: Request, res: Response) => {
   const { symbol } = req.params;
-  const period = (req.query.period as '1mo' | '3mo' | '6mo' | '1y') || '3mo';
+  const period = (req.query.period as '1mo' | '3mo' | '6mo' | '1y' | '2y' | '5y' | 'max') || '3mo';
   const interval = req.query.interval as string | undefined;
 
-  const validPeriods = ['1mo', '3mo', '6mo', '1y'];
+  const validPeriods = ['1mo', '3mo', '6mo', '1y', '2y', '5y', 'max'];
   if (!interval && !validPeriods.includes(period)) {
     return res.status(400).json({
       success: false,
@@ -225,6 +225,21 @@ router.get('/stock/:symbol/indicators', async (req: Request, res: Response) => {
   } catch (err) {
     logError(`Failed to calculate indicators for ${symbol}`, err);
     return res.status(500).json({ success: false, message: 'Failed to calculate indicators' });
+  }
+});
+
+/**
+ * GET /api/stock/:symbol/news
+ * Fetch recent news headlines for a symbol.
+ */
+router.get('/stock/:symbol/news', async (req: Request, res: Response) => {
+  const { symbol } = req.params;
+  try {
+    const news = await fetchNews(symbol.toUpperCase());
+    return res.json({ success: true, symbol: symbol.toUpperCase(), news });
+  } catch (err) {
+    logError(`Failed to fetch news for ${symbol}`, err);
+    return res.status(500).json({ success: false, message: 'Failed to fetch news' });
   }
 });
 

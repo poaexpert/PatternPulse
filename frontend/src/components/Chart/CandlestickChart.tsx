@@ -33,13 +33,28 @@ interface CandlestickChartProps {
   timeframe?: string;
   swingSetup?: SwingSetup;
   height?: number;
+  showTimeframePicker?: boolean;
 }
+
+const CHART_TIMEFRAMES = [
+  { label: '15m', param: { interval: '15m' } },
+  { label: '1H',  param: { interval: 'h' } },
+  { label: '4H',  param: { interval: '4h' } },
+  { label: '1D',  param: { period: '3mo' } },
+  { label: '1W',  param: { period: '6mo' } },
+  { label: '1M',  param: { period: '1y' } },
+  { label: '1Y',  param: { period: '2y' } },
+  { label: '5Y',  param: { period: '5y' } },
+  { label: 'All', param: { period: 'max' } },
+];
 
 // Map timeframe to history API param
 function getHistoryParam(tf: string): { interval?: string; period?: string } {
+  const found = CHART_TIMEFRAMES.find((t) => t.label.toLowerCase() === tf.toLowerCase());
+  if (found) return found.param;
   if (tf === '15m') return { interval: '15m' };
-  if (tf === '1h') return { interval: 'h' };
-  if (tf === '4h') return { interval: '4h' };
+  if (tf === '1h' || tf === '1H') return { interval: 'h' };
+  if (tf === '4h' || tf === '4H') return { interval: '4h' };
   return { period: '3mo' };
 }
 
@@ -60,13 +75,14 @@ const CHART_THEME = {
   volume: '#374151',
 };
 
-export default function CandlestickChart({ symbol, timeframe = '1d', swingSetup, height = 300 }: CandlestickChartProps) {
+export default function CandlestickChart({ symbol, timeframe: tfProp = '1D', swingSetup, height = 300, showTimeframePicker = false }: CandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [barCount, setBarCount] = useState(0);
+  const [activeTf, setActiveTf] = useState(tfProp);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -150,7 +166,7 @@ export default function CandlestickChart({ symbol, timeframe = '1d', swingSetup,
     chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
 
     // Fetch OHLCV data
-    const { interval, period } = getHistoryParam(timeframe);
+    const { interval, period } = getHistoryParam(activeTf);
     const sym = encodeURIComponent(symbol);
     const url = interval
       ? `/api/stock/${sym}/history?interval=${interval}`
@@ -280,24 +296,34 @@ export default function CandlestickChart({ symbol, timeframe = '1d', swingSetup,
       candleRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbol, timeframe]);
+  }, [symbol, activeTf]);
 
   return (
     <div className="bg-[#0a0e1a] rounded-xl border border-terminal-border overflow-hidden">
       {/* Chart header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-terminal-border">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-terminal-border gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <span className="text-xs font-bold text-terminal-text-primary font-mono">{symbol}</span>
-          <span className="text-[10px] text-terminal-text-secondary bg-terminal-border/50 px-1.5 py-0.5 rounded">{timeframe.toUpperCase()}</span>
           {!loading && barCount > 0 && (
             <span className="text-[10px] text-terminal-text-secondary">{barCount} bars</span>
           )}
         </div>
+        {/* Timeframe picker (always shown) */}
+        <div className="flex gap-0.5 flex-wrap">
+          {CHART_TIMEFRAMES.map(({ label }) => (
+            <button key={label} onClick={() => setActiveTf(label)}
+              className={`text-[10px] px-1.5 py-0.5 rounded font-semibold transition-colors ${
+                activeTf === label
+                  ? 'bg-terminal-cyan/20 text-terminal-cyan'
+                  : 'text-terminal-text-secondary hover:text-terminal-text-primary'
+              }`}>{label}</button>
+          ))}
+        </div>
         {/* EMA legend */}
-        <div className="flex items-center gap-3 text-[10px]">
-          <span className="flex items-center gap-1"><span className="w-3 h-0.5 inline-block" style={{ background: CHART_THEME.ema9 }} />EMA9</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-0.5 inline-block" style={{ background: CHART_THEME.ema20 }} />EMA20</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-0.5 inline-block" style={{ background: CHART_THEME.ema50 }} />EMA50</span>
+        <div className="hidden sm:flex items-center gap-2 text-[10px] shrink-0">
+          <span className="flex items-center gap-1"><span className="w-3 h-0.5 inline-block" style={{ background: CHART_THEME.ema9 }} />9</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-0.5 inline-block" style={{ background: CHART_THEME.ema20 }} />20</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-0.5 inline-block" style={{ background: CHART_THEME.ema50 }} />50</span>
         </div>
       </div>
 

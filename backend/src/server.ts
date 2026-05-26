@@ -24,6 +24,7 @@ import watchlistRouter from './routes/watchlist';
 import notificationsRouter from './routes/notifications';
 import marketRouter from './routes/market';
 import analysisRouter from './routes/analysis';
+import journalRouter from './routes/journal';
 
 const app = express();
 const server = createServer(app);
@@ -63,6 +64,7 @@ app.use('/api/watchlist', watchlistRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/market', marketRouter);
 app.use('/api/analysis', analysisRouter);
+app.use('/api/journal', journalRouter);
 app.use('/api', marketRouter); // exposes /api/stock/:symbol/* routes
 
 // ── Bot proxy (/bot/* → ChartSpyder Python service on port 8081) ──────────────
