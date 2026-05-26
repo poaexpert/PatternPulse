@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import axios from 'axios';
 import AnalysisResults from './AnalysisResults';
 import { useStore } from '../../store';
@@ -117,13 +117,14 @@ export default function AIAnalysisPanel() {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const historyFetchedRef = useRef(false);
 
-  // Fetch history once
+  // Fetch history once on mount
   const fetchHistory = useCallback(async () => {
     if (historyFetchedRef.current) return;
     historyFetchedRef.current = true;
     try {
-      const res = await axios.get<ChartAnalysis[]>('/api/analysis/history');
-      setAnalysisHistory(res.data.slice(0, 10));
+      const res = await axios.get<{ history: ChartAnalysis[] }>('/api/analysis/history');
+      const items = res.data?.history ?? [];
+      setAnalysisHistory(items.slice(0, 10));
     } catch {
       // history is optional — don't show error
     } finally {
@@ -131,10 +132,9 @@ export default function AIAnalysisPanel() {
     }
   }, [setAnalysisHistory]);
 
-  // Fetch history on mount
-  useState(() => {
+  useEffect(() => {
     fetchHistory();
-  });
+  }, [fetchHistory]);
 
   const analyzeSymbol = async () => {
     const sym = symbolInput.trim().toUpperCase();
@@ -145,11 +145,12 @@ export default function AIAnalysisPanel() {
     setIsAnalyzing(true);
     setError(null);
     try {
-      const res = await axios.post<ChartAnalysis>(`/api/analysis/chart/${sym}`, {
+      const res = await axios.post<{ success: boolean; analysis: ChartAnalysis }>(`/api/analysis/chart/${sym}`, {
         context: context.trim() || undefined,
       });
-      setCurrentAnalysis(res.data);
-      addAnalysis(res.data);
+      const analysis = res.data?.analysis ?? res.data;
+      setCurrentAnalysis(analysis as ChartAnalysis);
+      addAnalysis(analysis as ChartAnalysis);
     } catch (err: unknown) {
       setError(friendlyApiError(err));
     } finally {

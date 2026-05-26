@@ -65,11 +65,11 @@ export default function App() {
 
       const [scanRes, alertsRes, watchlistRes, settingsRes, marketRes] =
         await Promise.allSettled([
-          axios.get('/api/scanner/results'),
-          axios.get('/api/alerts'),
-          axios.get('/api/watchlist'),
-          axios.get('/api/notifications/settings'),
-          axios.get('/api/market/overview'),
+          axios.get('/api/scanner/results', { timeout: 8000 }),
+          axios.get('/api/alerts', { timeout: 8000 }),
+          axios.get('/api/watchlist', { timeout: 8000 }),
+          axios.get('/api/notifications/settings', { timeout: 8000 }),
+          axios.get('/api/market/overview', { timeout: 8000 }),
         ]);
 
       // Scanner results: { success, count, results: ScanResult[] }
