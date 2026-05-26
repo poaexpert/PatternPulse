@@ -348,6 +348,7 @@ export async function analyzeSymbolWithTA(
   const summary = `${sentenceTrend}. ${sentenceSetup} ${sentenceQuality}`;
 
   return {
+    currentPrice,
     trend: {
       direction: trendDir,
       strength: trendStrength,

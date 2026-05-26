@@ -8,7 +8,6 @@ function friendlyApiError(err: unknown): string {
   if (!axios.isAxiosError(err)) return 'Analysis failed. Please try again.';
   const body = err.response?.data;
   const msg: string = body?.message ?? err.message ?? 'Unknown error';
-  if (err.response?.status === 422) return msg;
   return msg || 'Analysis failed. Please try again.';
 }
 
@@ -16,11 +15,7 @@ function TypingDots() {
   return (
     <span className="inline-flex items-center gap-1 ml-1">
       {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="w-1.5 h-1.5 rounded-full bg-terminal-cyan animate-bounce"
-          style={{ animationDelay: `${i * 0.15}s` }}
-        />
+        <span key={i} className="w-1.5 h-1.5 rounded-full bg-terminal-cyan animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
       ))}
     </span>
   );
@@ -37,7 +32,10 @@ function EmptyState() {
       </div>
       <p className="text-terminal-text-primary font-semibold mb-1">Technical Analysis</p>
       <p className="text-terminal-text-secondary text-sm leading-relaxed max-w-xs">
-        Enter a ticker symbol to get free technical analysis powered by Yahoo Finance data
+        Enter a ticker symbol or futures contract to get free technical analysis
+      </p>
+      <p className="text-terminal-text-secondary/60 text-xs mt-3">
+        Examples: SI=F · GC=F · ES=F · AAPL · SICN26
       </p>
     </div>
   );
@@ -60,40 +58,35 @@ interface HistoryCardProps {
 
 function HistoryCard({ item, onClick }: HistoryCardProps) {
   const signalColor =
-    item.topBottomSignal.type === 'TOP'
-      ? 'text-terminal-red bg-terminal-red/10'
-      : item.topBottomSignal.type === 'BOTTOM'
-      ? 'text-terminal-green bg-terminal-green/10'
-      : 'text-terminal-text-secondary bg-terminal-border/30';
+    item.topBottomSignal.type === 'TOP' ? 'text-terminal-red bg-terminal-red/10' :
+    item.topBottomSignal.type === 'BOTTOM' ? 'text-terminal-green bg-terminal-green/10' :
+    'text-terminal-text-secondary bg-terminal-border/30';
 
-  const directionColor =
-    item.trend.direction === 'UP'
-      ? 'text-terminal-green'
-      : item.trend.direction === 'DOWN'
-      ? 'text-terminal-red'
-      : 'text-terminal-cyan';
+  const dirColor =
+    item.swingSetup?.direction === 'LONG' ? 'text-terminal-green' :
+    item.swingSetup?.direction === 'SHORT' ? 'text-terminal-red' :
+    item.trend.direction === 'UP' ? 'text-terminal-green' :
+    item.trend.direction === 'DOWN' ? 'text-terminal-red' :
+    'text-terminal-cyan';
+
+  const dirLabel =
+    item.swingSetup?.direction === 'LONG' ? '▲ LONG' :
+    item.swingSetup?.direction === 'SHORT' ? '▼ SHORT' :
+    item.trend.direction === 'UP' ? '↑' : item.trend.direction === 'DOWN' ? '↓' : '→';
 
   return (
     <button
       onClick={onClick}
-      className="w-full text-left bg-terminal-bg hover:bg-terminal-border/20 border border-terminal-border rounded-lg px-3 py-2.5 transition-colors group"
+      className="w-full text-left bg-terminal-bg hover:bg-terminal-border/20 border border-terminal-border rounded-lg px-3 py-2.5 transition-colors"
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${item.source === 'image' ? 'bg-terminal-purple/15 text-terminal-purple' : 'bg-terminal-cyan/15 text-terminal-cyan'}`}>
-            {item.source === 'image' ? 'IMAGE' : 'DATA'}
-          </span>
-          {item.symbol && (
-            <span className="text-xs font-semibold text-terminal-text-primary truncate">{item.symbol}</span>
-          )}
-          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${signalColor}`}>
-            {item.topBottomSignal.type}
-          </span>
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-terminal-cyan/15 text-terminal-cyan shrink-0">DATA</span>
+          {item.symbol && <span className="text-xs font-semibold text-terminal-text-primary truncate">{item.symbol}</span>}
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${signalColor}`}>{item.topBottomSignal.type}</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className={`text-xs font-semibold ${directionColor}`}>
-            {item.trend.direction === 'UP' ? '↑' : item.trend.direction === 'DOWN' ? '↓' : '→'}
-          </span>
+          <span className={`text-xs font-bold ${dirColor}`}>{dirLabel}</span>
           <span className="text-[10px] text-terminal-text-secondary">{timeAgo(item.analysedAt)}</span>
         </div>
       </div>
@@ -101,10 +94,23 @@ function HistoryCard({ item, onClick }: HistoryCardProps) {
         <span className="text-[10px] text-terminal-text-secondary">{item.trend.strength}</span>
         <span className="text-[10px] text-terminal-text-secondary">·</span>
         <span className="text-[10px] text-terminal-text-secondary">Strength {item.signalStrength}/10</span>
+        {item.currentPrice != null && (
+          <>
+            <span className="text-[10px] text-terminal-text-secondary">·</span>
+            <span className="text-[10px] text-terminal-cyan font-mono">${item.currentPrice.toFixed(2)}</span>
+          </>
+        )}
       </div>
     </button>
   );
 }
+
+const REFRESH_INTERVALS = [
+  { label: 'Off', value: 0 },
+  { label: '5m', value: 5 * 60 * 1000 },
+  { label: '15m', value: 15 * 60 * 1000 },
+  { label: '30m', value: 30 * 60 * 1000 },
+];
 
 export default function AIAnalysisPanel() {
   const { analysisHistory, addAnalysis, setAnalysisHistory, selectedSymbol, setSelectedSymbol } = useStore();
@@ -115,28 +121,31 @@ export default function AIAnalysisPanel() {
   const [error, setError] = useState<string | null>(null);
   const [currentAnalysis, setCurrentAnalysis] = useState<ChartAnalysis | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
-  const historyFetchedRef = useRef(false);
+  const [refreshInterval, setRefreshInterval] = useState(0);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [alertsSet, setAlertsSet] = useState(false);
+  const [settingAlerts, setSettingAlerts] = useState(false);
 
-  // Fetch history once on mount
+  const historyFetchedRef = useRef(false);
+  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const activeSymbolRef = useRef('');
+
   const fetchHistory = useCallback(async () => {
     if (historyFetchedRef.current) return;
     historyFetchedRef.current = true;
     try {
       const res = await axios.get<{ history: ChartAnalysis[] }>('/api/analysis/history');
-      const items = res.data?.history ?? [];
-      setAnalysisHistory(items.slice(0, 10));
+      setAnalysisHistory((res.data?.history ?? []).slice(0, 10));
     } catch {
-      // history is optional — don't show error
+      // history is optional
     } finally {
       setHistoryLoaded(true);
     }
   }, [setAnalysisHistory]);
 
-  useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
+  useEffect(() => { fetchHistory(); }, [fetchHistory]);
 
-  // Pre-fill symbol if navigated from FuturesPanel
+  // Pre-fill symbol from FuturesPanel navigation
   useEffect(() => {
     if (selectedSymbol && !symbolInput) {
       setSymbolInput(selectedSymbol);
@@ -145,12 +154,8 @@ export default function AIAnalysisPanel() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSymbol]);
 
-  const analyzeSymbol = async () => {
-    const sym = symbolInput.trim().toUpperCase();
-    if (!sym) {
-      setError('Please enter a symbol.');
-      return;
-    }
+  const runAnalysis = useCallback(async (sym: string) => {
+    if (!sym) return;
     setIsAnalyzing(true);
     setError(null);
     try {
@@ -160,12 +165,86 @@ export default function AIAnalysisPanel() {
       const analysis = res.data?.analysis ?? res.data;
       setCurrentAnalysis(analysis as ChartAnalysis);
       addAnalysis(analysis as ChartAnalysis);
+      setLastRefreshed(new Date());
+      setAlertsSet(false);
     } catch (err: unknown) {
       setError(friendlyApiError(err));
     } finally {
       setIsAnalyzing(false);
     }
+  }, [context, addAnalysis]);
+
+  const analyzeSymbol = async () => {
+    const sym = symbolInput.trim().toUpperCase();
+    if (!sym) { setError('Please enter a symbol.'); return; }
+    activeSymbolRef.current = sym;
+    setAlertsSet(false);
+    await runAnalysis(sym);
   };
+
+  const setExitAlerts = async (analysis: ChartAnalysis) => {
+    const { swingSetup, symbol, resolvedSymbol } = analysis;
+    if (!swingSetup.exists || swingSetup.direction === 'NONE') return;
+    const sym = resolvedSymbol ?? symbol ?? activeSymbolRef.current;
+    if (!sym) return;
+
+    const isLong = swingSetup.direction === 'LONG';
+    setSettingAlerts(true);
+    try {
+      const promises = [];
+      if (swingSetup.target1 != null) {
+        promises.push(axios.post('/api/alerts', {
+          symbol: sym,
+          conditionType: isLong ? 'PRICE_ABOVE' : 'PRICE_BELOW',
+          threshold: swingSetup.target1,
+          notifyMethods: ['browser'],
+          note: `EXIT ${swingSetup.direction} — Target 1 hit`,
+        }));
+      }
+      if (swingSetup.stopLoss != null) {
+        promises.push(axios.post('/api/alerts', {
+          symbol: sym,
+          conditionType: isLong ? 'PRICE_BELOW' : 'PRICE_ABOVE',
+          threshold: swingSetup.stopLoss,
+          notifyMethods: ['browser'],
+          note: `STOP HIT — Exit ${swingSetup.direction} immediately`,
+        }));
+      }
+      if (swingSetup.target2 != null) {
+        promises.push(axios.post('/api/alerts', {
+          symbol: sym,
+          conditionType: isLong ? 'PRICE_ABOVE' : 'PRICE_BELOW',
+          threshold: swingSetup.target2,
+          notifyMethods: ['browser'],
+          note: `EXIT ${swingSetup.direction} — Target 2 hit`,
+        }));
+      }
+      await Promise.all(promises);
+      setAlertsSet(true);
+    } catch {
+      setError('Failed to set exit alerts. Check the Alerts panel.');
+    } finally {
+      setSettingAlerts(false);
+    }
+  };
+
+  // Auto-refresh timer
+  useEffect(() => {
+    if (refreshTimerRef.current) {
+      clearInterval(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+    if (refreshInterval > 0 && activeSymbolRef.current) {
+      refreshTimerRef.current = setInterval(() => {
+        if (activeSymbolRef.current && !isAnalyzing) {
+          runAnalysis(activeSymbolRef.current);
+        }
+      }, refreshInterval);
+    }
+    return () => {
+      if (refreshTimerRef.current) clearInterval(refreshTimerRef.current);
+    };
+  }, [refreshInterval, runAnalysis, isAnalyzing]);
 
   const displayHistory = analysisHistory.slice(0, 10);
 
@@ -175,7 +254,7 @@ export default function AIAnalysisPanel() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-terminal-text-primary">Technical Analysis</h1>
-          <p className="text-xs text-terminal-text-secondary mt-0.5">Free · Powered by Yahoo Finance + Technical Indicators</p>
+          <p className="text-xs text-terminal-text-secondary mt-0.5">Free · Yahoo Finance data · No API key needed</p>
         </div>
         <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-terminal-cyan/15 text-terminal-cyan border border-terminal-cyan/25">
           Free · No API Key
@@ -203,15 +282,24 @@ export default function AIAnalysisPanel() {
               disabled={isAnalyzing || !symbolInput.trim()}
               className="px-4 py-2 rounded-lg bg-terminal-cyan text-terminal-bg font-semibold text-sm transition-all hover:bg-terminal-cyan/90 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
             >
-              {isAnalyzing ? (
-                <span className="flex items-center gap-1">
-                  Analyzing
-                  <TypingDots />
-                </span>
-              ) : (
-                'Analyze'
-              )}
+              {isAnalyzing ? <span className="flex items-center gap-1">Analyzing<TypingDots /></span> : 'Analyze'}
             </button>
+          </div>
+
+          {/* Quick picks for futures */}
+          <div>
+            <p className="text-[10px] text-terminal-text-secondary uppercase tracking-wider mb-1.5">Quick Pick</p>
+            <div className="flex flex-wrap gap-1.5">
+              {['SI=F', 'GC=F', 'ES=F', 'NQ=F', 'CL=F', 'GC=F'].filter((v, i, a) => a.indexOf(v) === i).map((sym) => (
+                <button
+                  key={sym}
+                  onClick={() => { setSymbolInput(sym); activeSymbolRef.current = sym; }}
+                  className="text-[11px] px-2.5 py-1 rounded bg-terminal-bg border border-terminal-border text-terminal-text-secondary hover:border-terminal-cyan/50 hover:text-terminal-cyan transition-colors font-mono"
+                >
+                  {sym}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Context textarea */}
@@ -228,6 +316,38 @@ export default function AIAnalysisPanel() {
             />
           </div>
 
+          {/* Auto-refresh */}
+          <div>
+            <p className="text-[10px] font-semibold text-terminal-text-secondary uppercase tracking-wider mb-1.5">
+              Auto-Refresh
+              {refreshInterval > 0 && lastRefreshed && (
+                <span className="ml-2 normal-case font-normal text-terminal-cyan">
+                  · last: {timeAgo(lastRefreshed.toISOString())}
+                </span>
+              )}
+            </p>
+            <div className="flex gap-1.5">
+              {REFRESH_INTERVALS.map(({ label, value }) => (
+                <button
+                  key={label}
+                  onClick={() => setRefreshInterval(value)}
+                  className={`text-[11px] px-3 py-1 rounded border transition-colors font-semibold ${
+                    refreshInterval === value
+                      ? 'bg-terminal-cyan/20 border-terminal-cyan/50 text-terminal-cyan'
+                      : 'bg-terminal-bg border-terminal-border text-terminal-text-secondary hover:border-terminal-cyan/30'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {refreshInterval > 0 && (
+              <p className="text-[10px] text-terminal-text-secondary/70 mt-1">
+                Analysis refreshes every {REFRESH_INTERVALS.find((r) => r.value === refreshInterval)?.label} automatically
+              </p>
+            )}
+          </div>
+
           {/* Error */}
           {error && (
             <div className="rounded-lg bg-terminal-red/10 border border-terminal-red/25 px-3 py-2.5 text-sm text-terminal-red flex items-start gap-2">
@@ -238,9 +358,31 @@ export default function AIAnalysisPanel() {
         </div>
 
         {/* Right — Results Panel */}
-        <div className="bg-terminal-card border border-terminal-border rounded-xl p-4 min-h-64">
+        <div className="bg-terminal-card border border-terminal-border rounded-xl p-4 min-h-64 overflow-y-auto max-h-[70vh]">
           {currentAnalysis ? (
-            <AnalysisResults analysis={currentAnalysis} />
+            <div className="space-y-3">
+              <AnalysisResults analysis={currentAnalysis} />
+              {/* Exit alerts button — shown when a swing setup exists */}
+              {currentAnalysis.swingSetup.exists && currentAnalysis.swingSetup.direction !== 'NONE' && (
+                <button
+                  onClick={() => setExitAlerts(currentAnalysis)}
+                  disabled={settingAlerts || alertsSet}
+                  className={`w-full py-2.5 rounded-lg border font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
+                    alertsSet
+                      ? 'bg-terminal-green/15 border-terminal-green/40 text-terminal-green cursor-default'
+                      : 'bg-terminal-yellow/10 border-terminal-yellow/30 text-terminal-yellow hover:bg-terminal-yellow/20 disabled:opacity-50'
+                  }`}
+                >
+                  {alertsSet ? (
+                    <><span>✓</span> Exit Alerts Active — Check Alerts Panel</>
+                  ) : settingAlerts ? (
+                    <><span className="animate-spin">⟳</span> Setting Alerts…</>
+                  ) : (
+                    <><span>🔔</span> Set Exit Alerts (Target + Stop Loss)</>
+                  )}
+                </button>
+              )}
+            </div>
           ) : (
             <EmptyState />
           )}
@@ -253,9 +395,7 @@ export default function AIAnalysisPanel() {
           <h2 className="text-sm font-semibold text-terminal-text-primary mb-3">
             Recent Analyses
             {displayHistory.length > 0 && (
-              <span className="ml-2 text-[10px] font-normal text-terminal-text-secondary">
-                ({displayHistory.length})
-              </span>
+              <span className="ml-2 text-[10px] font-normal text-terminal-text-secondary">({displayHistory.length})</span>
             )}
           </h2>
           {displayHistory.length === 0 ? (

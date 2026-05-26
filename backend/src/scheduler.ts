@@ -1,6 +1,7 @@
 import * as cron from 'node-cron';
 import { runFullScan } from './scanners';
 import { checkAlerts, broadcastStrongSignals } from './alerts/checker';
+import { checkPriceAlerts, setPriceMonitorIO } from './alerts/priceMonitor';
 import { sendMarketOpenBrief, sendMarketCloseSummary } from './notifications/telegram';
 import { store } from './store';
 import { config } from './config';
@@ -12,6 +13,7 @@ let io: any = null;
 
 export function setSocketIO(socketIO: unknown): void {
   io = socketIO;
+  setPriceMonitorIO(socketIO);
 }
 
 /**
@@ -154,6 +156,15 @@ export function startScheduler(): void {
     }
   }, {
     timezone: 'America/New_York',
+  });
+
+  // ── Price alert monitor — every 2 minutes (works for futures too) ─────────
+  cron.schedule('*/2 * * * *', async () => {
+    try {
+      await checkPriceAlerts();
+    } catch (err) {
+      logError('Price alert monitor failed', err);
+    }
   });
 
   // ── Initial scan on startup (after 10-second delay) ────────────────────

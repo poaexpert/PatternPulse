@@ -1,5 +1,6 @@
 // Claude AI removed — use technicalAnalysis.ts for free analysis
 export interface ChartAnalysis {
+  currentPrice?: number;
   trend: {
     direction: 'UP' | 'DOWN' | 'SIDEWAYS';
     strength: 'STRONG' | 'MODERATE' | 'WEAK';

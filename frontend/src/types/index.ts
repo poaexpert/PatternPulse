@@ -119,6 +119,7 @@ export interface MarketStatus {
 export type ActiveView = 'dashboard' | 'scanner' | 'alerts' | 'watchlist' | 'settings' | 'ai-analysis' | 'futures';
 
 export interface ChartAnalysis {
+  currentPrice?: number;
   trend: {
     direction: 'UP' | 'DOWN' | 'SIDEWAYS';
     strength: 'STRONG' | 'MODERATE' | 'WEAK';
@@ -163,6 +164,7 @@ export interface ChartAnalysis {
   analysedAt: string;
   source: 'image' | 'data';
   symbol?: string;
+  resolvedSymbol?: string;
   id?: string;
 }
 
