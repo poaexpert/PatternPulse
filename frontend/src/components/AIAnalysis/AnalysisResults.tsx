@@ -53,10 +53,13 @@ function TradingStrategies({ analysis }: { analysis: ChartAnalysis }) {
   const dir = swingSetup.direction;
   const isLong = dir === 'LONG';
 
-  const strategies: { name: string; type: string; description: string; risk: string; riskColor: string }[] = [];
-  const fmt = (n: number | null) => n == null ? '—' : `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  type Strategy = { name: string; type: string; description: string; risk: string; riskColor: string };
+  const strategies: Strategy[] = [];
+  const fmt = (n: number | null | undefined) =>
+    n == null ? '—' : `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  if (swingSetup.exists && dir !== 'NONE' && swingSetup.entry) {
+  // ── 1. Primary Swing (always show if direction is set) ──────────────────
+  if (dir !== 'NONE' && swingSetup.entry) {
     strategies.push({
       name: `${isLong ? '▲' : '▼'} Primary Swing`,
       type: dir,
@@ -66,73 +69,148 @@ function TradingStrategies({ analysis }: { analysis: ChartAnalysis }) {
     });
   }
 
+  // ── 2. RSI extreme strategies ──────────────────────────────────────────
   if (indicators.rsiSignal === 'OVERSOLD') {
     strategies.push({
-      name: '📈 RSI Bounce',
+      name: '📈 RSI Oversold Bounce',
       type: 'LONG',
-      description: `RSI oversold — watch for reversal candle above ${keyLevels.support[0] ? fmt(keyLevels.support[0]) : 'nearest support'}. Enter on confirmation, stop below the low.`,
+      description: `RSI deeply oversold — high-probability reversal zone. Watch for a bullish reversal candle above ${keyLevels.support[0] ? fmt(keyLevels.support[0]) : 'nearest support'}. Enter on confirmation candle, stop below the swing low.`,
       risk: 'Medium Risk',
       riskColor: 'text-terminal-yellow',
     });
   }
-
   if (indicators.rsiSignal === 'OVERBOUGHT') {
     strategies.push({
-      name: '📉 RSI Fade',
+      name: '📉 RSI Overbought Fade',
       type: 'SHORT',
-      description: `RSI overbought — fade the move at ${keyLevels.resistance[0] ? fmt(keyLevels.resistance[0]) : 'resistance'}. Stop above the high.`,
+      description: `RSI overbought — momentum exhaustion near ${keyLevels.resistance[0] ? fmt(keyLevels.resistance[0]) : 'resistance'}. Fade the move or wait for a bearish candle. Stop above the swing high.`,
       risk: 'Medium Risk',
       riskColor: 'text-terminal-yellow',
     });
   }
 
-  const bullP = patterns.find((p) => p.implication === 'BULLISH' && p.completion !== 'PARTIAL');
-  if (bullP) {
+  // ── 3. RSI divergence strategies ──────────────────────────────────────
+  if (indicators.rsiSignal === 'DIVERGENCE_BULLISH') {
+    strategies.push({
+      name: '📈 RSI Bullish Divergence',
+      type: 'LONG',
+      description: `RSI making higher lows while price makes lower lows — hidden buying pressure building. Enter long on the next swing low retest with stop just below. Target the prior high.`,
+      risk: 'Medium Risk',
+      riskColor: 'text-terminal-yellow',
+    });
+  }
+  if (indicators.rsiSignal === 'DIVERGENCE_BEARISH') {
+    strategies.push({
+      name: '📉 RSI Bearish Divergence',
+      type: 'SHORT',
+      description: `RSI making lower highs while price makes higher highs — momentum weakening at the top. Short the next bounce into resistance with stop above the swing high.`,
+      risk: 'Medium Risk',
+      riskColor: 'text-terminal-yellow',
+    });
+  }
+
+  // ── 4. MACD strategies (add if under 3 ideas so far) ──────────────────
+  if (indicators.macdSignal === 'BULLISH' && strategies.length < 3) {
+    strategies.push({
+      name: '🟢 MACD Bullish Cross',
+      type: 'LONG',
+      description: `MACD histogram turned positive — buy pressure building. Enter long on pullback to EMA20, stop below EMA50. Scale out at prior resistance levels.`,
+      risk: 'Medium Risk',
+      riskColor: 'text-terminal-yellow',
+    });
+  }
+  if (indicators.macdSignal === 'BEARISH' && strategies.length < 3) {
+    strategies.push({
+      name: '🔴 MACD Bearish Cross',
+      type: 'SHORT',
+      description: `MACD histogram turned negative — sell pressure increasing. Short bounces to EMA20 with stop above EMA50.`,
+      risk: 'Medium Risk',
+      riskColor: 'text-terminal-yellow',
+    });
+  }
+
+  // ── 5. Pattern-based strategies ────────────────────────────────────────
+  const bullP = patterns.find((p) => p.implication === 'BULLISH');
+  if (bullP && !strategies.some((s) => s.type === 'LONG' && s.name.includes(bullP.name))) {
     strategies.push({
       name: `📊 ${bullP.name}`,
       type: 'LONG',
       description: `${bullP.completion} bullish pattern. ${bullP.target ? `Target: ${fmt(bullP.target)}.` : ''} Enter above the high, stop below the low.`,
-      risk: 'Medium Risk',
-      riskColor: 'text-terminal-yellow',
+      risk: bullP.completion === 'COMPLETE' ? 'Low Risk' : 'Medium Risk',
+      riskColor: bullP.completion === 'COMPLETE' ? 'text-terminal-green' : 'text-terminal-yellow',
     });
   }
-
-  const bearP = patterns.find((p) => p.implication === 'BEARISH' && p.completion !== 'PARTIAL');
-  if (bearP) {
+  const bearP = patterns.find((p) => p.implication === 'BEARISH');
+  if (bearP && !strategies.some((s) => s.type === 'SHORT' && s.name.includes(bearP.name))) {
     strategies.push({
       name: `📊 ${bearP.name}`,
       type: 'SHORT',
       description: `${bearP.completion} bearish pattern. ${bearP.target ? `Target: ${fmt(bearP.target)}.` : ''} Short below the low, stop above the high.`,
+      risk: bearP.completion === 'COMPLETE' ? 'Low Risk' : 'Medium Risk',
+      riskColor: bearP.completion === 'COMPLETE' ? 'text-terminal-green' : 'text-terminal-yellow',
+    });
+  }
+
+  // ── 6. Trend ride (lowered threshold) ─────────────────────────────────
+  if ((trend.strength === 'STRONG' || trend.strength === 'MODERATE') && signalStrength >= 5 && trend.direction !== 'SIDEWAYS') {
+    const tType = trend.direction === 'UP' ? 'LONG' : 'SHORT';
+    if (!strategies.some((s) => s.name.includes('Trend Ride') || s.name.includes('Trend Pullback'))) {
+      if (trend.strength === 'STRONG') {
+        strategies.push({
+          name: '🔥 Trend Ride',
+          type: tType,
+          description: `Strong ${trend.direction} trend (${signalStrength}/10). ${trend.direction === 'UP' ? 'Add longs on EMA20 pullbacks, stop below EMA50.' : 'Add shorts on EMA20 bounces, stop above EMA50.'} Trail your stop as it moves.`,
+          risk: 'Low Risk',
+          riskColor: 'text-terminal-green',
+        });
+      } else {
+        strategies.push({
+          name: '↗ Trend Pullback',
+          type: tType,
+          description: `Moderate ${trend.direction} trend. Trade pullbacks to the EMA20/EMA50 in trend direction. Tighten stops when momentum stalls.`,
+          risk: 'Medium Risk',
+          riskColor: 'text-terminal-yellow',
+        });
+      }
+    }
+  }
+
+  // ── 7. Top / Bottom reversal (extended to MEDIUM confidence) ──────────
+  if (topBottomSignal.type !== 'NONE' &&
+      (topBottomSignal.confidence === 'HIGH' || topBottomSignal.confidence === 'MEDIUM')) {
+    const revType = topBottomSignal.type === 'TOP' ? 'SHORT' : 'LONG';
+    if (!strategies.some((s) => s.type === revType && (s.name.includes('Top') || s.name.includes('Bottom')))) {
+      strategies.push({
+        name: topBottomSignal.type === 'TOP'
+          ? `⚠ ${topBottomSignal.confidence} Confidence Top`
+          : `🔄 ${topBottomSignal.confidence} Confidence Bottom`,
+        type: revType,
+        description: `${topBottomSignal.reasoning} ${topBottomSignal.confidence === 'HIGH' ? 'High conviction — tight stop, aggressive target.' : 'Moderate confidence — use reduced size.'}`,
+        risk: 'High Risk',
+        riskColor: 'text-terminal-red',
+      });
+    }
+  }
+
+  // ── 8. Range trade for sideways markets ───────────────────────────────
+  if (trend.direction === 'SIDEWAYS' && keyLevels.support.length > 0 && keyLevels.resistance.length > 0 && strategies.length < 2) {
+    const nearestSupport = keyLevels.support[0];
+    const nearestResistance = keyLevels.resistance[keyLevels.resistance.length - 1];
+    strategies.push({
+      name: '↔ Range Trade',
+      type: 'LONG',
+      description: `Sideways range — buy near support ${fmt(nearestSupport)}, target resistance ${fmt(nearestResistance)}. Tight stops just outside the range. Avoid chasing; wait for price to touch the level.`,
       risk: 'Medium Risk',
       riskColor: 'text-terminal-yellow',
     });
   }
 
-  if (trend.strength === 'STRONG' && signalStrength >= 7) {
-    strategies.push({
-      name: '🔥 Trend Ride',
-      type: trend.direction === 'UP' ? 'LONG' : 'SHORT',
-      description: `Strong ${trend.direction} trend (${signalStrength}/10). Add on EMA20 pullbacks, stop below EMA50. Trail stop as it moves.`,
-      risk: 'Low Risk',
-      riskColor: 'text-terminal-green',
-    });
-  }
-
-  if (topBottomSignal.type !== 'NONE' && topBottomSignal.confidence === 'HIGH') {
-    strategies.push({
-      name: topBottomSignal.type === 'TOP' ? '⚠ Top Fade' : '🔄 Bottom Reversal',
-      type: topBottomSignal.type === 'TOP' ? 'SHORT' : 'LONG',
-      description: `${topBottomSignal.reasoning} Tight stop, aggressive target.`,
-      risk: 'High Risk',
-      riskColor: 'text-terminal-red',
-    });
-  }
-
+  // ── Fallback with useful guidance (shouldn't happen often now) ─────────
   if (strategies.length === 0) {
     strategies.push({
-      name: '⏳ Wait for Clarity',
+      name: '⏳ No Edge Yet',
       type: 'NEUTRAL',
-      description: `Signal strength ${signalStrength}/10 — not enough edge. Wait for RSI extreme, MACD cross, or cleaner pattern before entering.`,
+      description: `Signal strength ${signalStrength}/10 — mixed signals across timeframes. Mark these key levels: Support ${keyLevels.support.map(fmt).join(' / ')}, Resistance ${keyLevels.resistance.map(fmt).join(' / ')}. Wait for an RSI extreme, MACD cross, or volume surge before entering.`,
       risk: 'Low Risk',
       riskColor: 'text-terminal-green',
     });
@@ -140,7 +218,9 @@ function TradingStrategies({ analysis }: { analysis: ChartAnalysis }) {
 
   return (
     <div className="bg-terminal-card border border-terminal-border rounded-lg p-4">
-      <h3 className="text-xs font-semibold text-terminal-text-secondary uppercase tracking-widest mb-3">Trade Ideas</h3>
+      <h3 className="text-xs font-semibold text-terminal-text-secondary uppercase tracking-widest mb-3">
+        Trade Ideas · {strategies.length} setup{strategies.length !== 1 ? 's' : ''}
+      </h3>
       <div className="space-y-2">
         {strategies.map((s, i) => (
           <div key={i} className={`rounded-lg px-3 py-3 border ${
@@ -150,13 +230,24 @@ function TradingStrategies({ analysis }: { analysis: ChartAnalysis }) {
           }`}>
             <div className="flex items-center justify-between gap-2 mb-1">
               <span className="text-xs font-bold text-terminal-text-primary">{s.name}</span>
-              <span className={`text-[10px] font-semibold ${s.riskColor}`}>{s.risk}</span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold border ${
+                  s.type === 'LONG' ? 'border-terminal-green/30 text-terminal-green bg-terminal-green/10' :
+                  s.type === 'SHORT' ? 'border-terminal-red/30 text-terminal-red bg-terminal-red/10' :
+                  'border-terminal-border text-terminal-text-secondary'
+                }`}>{s.type}</span>
+                <span className={`text-[10px] font-semibold ${s.riskColor}`}>{s.risk}</span>
+              </div>
             </div>
             <p className="text-[11px] text-terminal-text-secondary leading-relaxed">{s.description}</p>
           </div>
         ))}
       </div>
-      {currentPrice != null && <p className="text-[10px] text-terminal-text-secondary/60 mt-2">At ${currentPrice.toFixed(2)} · Not financial advice.</p>}
+      {currentPrice != null && (
+        <p className="text-[10px] text-terminal-text-secondary/60 mt-2">
+          Current: {fmt(currentPrice)} · Not financial advice · Use proper risk management
+        </p>
+      )}
     </div>
   );
 }

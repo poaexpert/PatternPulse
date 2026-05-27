@@ -224,28 +224,45 @@ export async function analyzeSymbolWithTA(
     });
   }
 
-  // ── Swing setup ───────────────────────────────────────────────────────────
-  const longSetup = trendDir === 'UP' || (potentialBottom && topBottomConfidence !== 'LOW') || rsi < 35;
-  const shortSetup = trendDir === 'DOWN' || (potentialTop && topBottomConfidence !== 'LOW') || rsi > 65;
+  // ── Swing setup — always generate a directional trade idea ───────────────
+  // Long bias: uptrend, oversold RSI, potential bottom, or positive momentum
+  const longBias = trendDir === 'UP'
+    || (potentialBottom && topBottomConfidence !== 'LOW')
+    || rsi < 40
+    || momentumScore > 0;
+  // Short bias: downtrend, overbought RSI, potential top, or negative momentum
+  const shortBias = trendDir === 'DOWN'
+    || (potentialTop && topBottomConfidence !== 'LOW')
+    || rsi > 60
+    || momentumScore < 0;
 
-  const setupExists = longSetup || shortSetup;
-
-  // Prefer long unless strong downtrend
-  let setupDir: 'LONG' | 'SHORT' | 'NONE' = 'NONE';
-  if (longSetup && shortSetup) {
-    setupDir = trendDir === 'DOWN' && trendStrength === 'STRONG' ? 'SHORT' : 'LONG';
-  } else if (longSetup) {
+  // Pick a direction — always resolve to LONG or SHORT, never leave as NONE
+  let setupDir: 'LONG' | 'SHORT' = 'LONG';
+  if (longBias && !shortBias) {
     setupDir = 'LONG';
-  } else if (shortSetup) {
+  } else if (shortBias && !longBias) {
     setupDir = 'SHORT';
+  } else if (longBias && shortBias) {
+    // Mixed signals — defer to trend, then momentum
+    setupDir = trendDir === 'DOWN' && trendStrength === 'STRONG'
+      ? 'SHORT'
+      : trendDir === 'UP'
+      ? 'LONG'
+      : momentumScore >= 0 ? 'LONG' : 'SHORT';
+  } else {
+    // Pure sideways, no bias — use momentum score as tiebreaker
+    setupDir = momentumScore >= 0 ? 'LONG' : 'SHORT';
   }
+
+  // Always mark the setup as existing
+  const setupExists = true;
 
   let entry: number | null = null;
   let stopLoss: number | null = null;
   let target1: number | null = null;
   let target2: number | null = null;
   let riskReward: number | null = null;
-  let setupDescription = 'No clear swing setup at this time.';
+  let setupDescription = '';
 
   if (setupDir === 'LONG') {
     entry = currentPrice;
@@ -254,15 +271,25 @@ export async function analyzeSymbolWithTA(
     target1 = Math.round((entry + risk * 2) * 100) / 100;
     target2 = Math.round((entry + risk * 3) * 100) / 100;
     riskReward = 2;
-    setupDescription = `Long setup near ${entry.toFixed(2)}. Stop below ${stopLoss.toFixed(2)} (1.5x ATR). Target 1: ${target1.toFixed(2)} (2:1 R/R), Target 2: ${target2.toFixed(2)} (3:1 R/R).`;
-  } else if (setupDir === 'SHORT') {
+    const setupType =
+      trendDir === 'UP' ? 'Trend continuation long' :
+      potentialBottom ? 'Bottom reversal long' :
+      rsi < 40 ? 'RSI pullback long' :
+      trendDir === 'SIDEWAYS' ? 'Range support long' : 'Momentum long';
+    setupDescription = `${setupType} near ${entry.toFixed(2)}. Stop ${stopLoss.toFixed(2)} (1.5×ATR). T1 ${target1.toFixed(2)}, T2 ${target2.toFixed(2)} — R:R 1:2.`;
+  } else {
     entry = currentPrice;
     stopLoss = Math.round((entry + atr * 1.5) * 100) / 100;
     const risk = stopLoss - entry;
     target1 = Math.round((entry - risk * 2) * 100) / 100;
     target2 = Math.round((entry - risk * 3) * 100) / 100;
     riskReward = 2;
-    setupDescription = `Short setup near ${entry.toFixed(2)}. Stop above ${stopLoss.toFixed(2)} (1.5x ATR). Target 1: ${target1.toFixed(2)} (2:1 R/R), Target 2: ${target2.toFixed(2)} (3:1 R/R).`;
+    const setupType =
+      trendDir === 'DOWN' ? 'Trend continuation short' :
+      potentialTop ? 'Top reversal short' :
+      rsi > 60 ? 'RSI overbought short' :
+      trendDir === 'SIDEWAYS' ? 'Range resistance short' : 'Momentum short';
+    setupDescription = `${setupType} near ${entry.toFixed(2)}. Stop ${stopLoss.toFixed(2)} (1.5×ATR). T1 ${target1.toFixed(2)}, T2 ${target2.toFixed(2)} — R:R 1:2.`;
   }
 
   // ── Signal strength (1-10) ────────────────────────────────────────────────
@@ -334,8 +361,8 @@ export async function analyzeSymbolWithTA(
       : '');
 
   const sentenceSetup =
-    setupDir !== 'NONE'
-      ? `${setupDir === 'LONG' ? 'Long' : 'Short'} swing setup: entry ${entry?.toFixed(2)}, stop ${stopLoss?.toFixed(2)}, targets ${target1?.toFixed(2)} / ${target2?.toFixed(2)}.`
+    entry != null
+      ? `${setupDir === 'LONG' ? 'Long' : 'Short'} swing setup: entry ${entry.toFixed(2)}, stop ${stopLoss?.toFixed(2)}, targets ${target1?.toFixed(2)} / ${target2?.toFixed(2)}.`
       : 'No clear swing setup at this time.';
 
   const sentenceQuality =
@@ -366,7 +393,7 @@ export async function analyzeSymbolWithTA(
     },
     patterns,
     swingSetup: {
-      exists: setupExists && setupDir !== 'NONE',
+      exists: setupExists,
       direction: setupDir,
       entry,
       stopLoss,
