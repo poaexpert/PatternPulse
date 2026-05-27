@@ -10,9 +10,7 @@ cleanup() {
 trap cleanup SIGTERM SIGINT
 
 # Start ChartSpyder AI bot on internal port 8081
-PYTHON=/opt/pyenv/bin/python3
-[ -x "$PYTHON" ] || PYTHON=python3
-BOT_PORT=8081 "$PYTHON" bot.py &
+BOT_PORT=8081 /opt/pyenv/bin/python3 bot.py &
 BOT_PID=$!
 echo "[start.sh] ChartSpyder bot started (PID=$BOT_PID)"
 
