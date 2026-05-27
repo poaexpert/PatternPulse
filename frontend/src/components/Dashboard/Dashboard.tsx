@@ -96,6 +96,175 @@ function Sparkline({ change, w = 64, h = 28 }: { change: number; w?: number; h?:
   );
 }
 
+// ── Sector list (used by multiple components) ─────────────────────────────
+
+const SECTORS = [
+  { symbol: 'XLK',  name: 'Technology',    weight: 31 },
+  { symbol: 'XLF',  name: 'Financials',    weight: 13 },
+  { symbol: 'XLV',  name: 'Healthcare',    weight: 12 },
+  { symbol: 'XLY',  name: 'Consumer Disc', weight: 10 },
+  { symbol: 'XLC',  name: 'Comm Services', weight: 9 },
+  { symbol: 'XLI',  name: 'Industrials',   weight: 9 },
+  { symbol: 'XLP',  name: 'Staples',       weight: 6 },
+  { symbol: 'XLE',  name: 'Energy',        weight: 4 },
+  { symbol: 'XLB',  name: 'Materials',     weight: 3 },
+  { symbol: 'XLRE', name: 'Real Estate',   weight: 3 },
+  { symbol: 'XLU',  name: 'Utilities',     weight: 3 },
+];
+
+// ── Section 0: Market Pulse (instant UP/DOWN/NEUTRAL) ────────────────────────
+
+interface PulseQuotes { spy?: QuoteSnap; qqq?: QuoteSnap; vix?: QuoteSnap; sectors: number[] }
+
+function computePulse({ spy, qqq, vix, sectors }: PulseQuotes): {
+  signal: 'BULL' | 'BEAR' | 'NEUTRAL';
+  score: number; // -10 to +10
+  reasons: string[];
+} {
+  let score = 0;
+  const reasons: string[] = [];
+
+  const spyPct = spy?.changePercent ?? 0;
+  const qqqPct = qqq?.changePercent ?? 0;
+  const vixPx  = vix?.price ?? 0;
+  const vixPct = vix?.changePercent ?? 0;
+
+  // SPY direction (±3 pts)
+  if (spyPct > 0.5) { score += 3; reasons.push(`SPY +${spyPct.toFixed(2)}% (bullish)`); }
+  else if (spyPct > 0) { score += 1; reasons.push(`SPY +${spyPct.toFixed(2)}% (slightly up)`); }
+  else if (spyPct < -0.5) { score -= 3; reasons.push(`SPY ${spyPct.toFixed(2)}% (bearish)`); }
+  else { score -= 1; reasons.push(`SPY ${spyPct.toFixed(2)}% (slightly down)`); }
+
+  // QQQ / tech leadership (±2 pts)
+  if (qqqPct > spyPct + 0.3) { score += 2; reasons.push(`QQQ leading (+${qqqPct.toFixed(2)}%) — tech bullish`); }
+  else if (qqqPct < spyPct - 0.3) { score -= 2; reasons.push(`QQQ lagging (${qqqPct.toFixed(2)}%) — tech weakness`); }
+
+  // VIX (±2 pts)
+  if (vixPx > 0) {
+    if (vixPx < 15 && vixPct < 0) { score += 2; reasons.push(`VIX ${vixPx.toFixed(1)} & falling — low fear`); }
+    else if (vixPx > 25) { score -= 3; reasons.push(`VIX ${vixPx.toFixed(1)} — HIGH FEAR, elevated risk`); }
+    else if (vixPx > 20) { score -= 1; reasons.push(`VIX ${vixPx.toFixed(1)} — moderate fear`); }
+    else if (vixPct < -2) { score += 1; reasons.push(`VIX falling ${vixPct.toFixed(1)}% — fear subsiding`); }
+    else if (vixPct > 5) { score -= 2; reasons.push(`VIX surging +${vixPct.toFixed(1)}% — fear rising`); }
+  }
+
+  // Sector breadth (±2 pts)
+  const bullSectors = sectors.filter(p => p > 0).length;
+  const bearSectors = sectors.filter(p => p < 0).length;
+  if (bullSectors >= 9) { score += 2; reasons.push(`${bullSectors}/11 sectors green — strong breadth`); }
+  else if (bullSectors >= 7) { score += 1; reasons.push(`${bullSectors}/11 sectors green — broad buying`); }
+  else if (bearSectors >= 9) { score -= 2; reasons.push(`${bearSectors}/11 sectors red — broad selling`); }
+  else if (bearSectors >= 7) { score -= 1; reasons.push(`${bearSectors}/11 sectors red — weak breadth`); }
+
+  // Clamp
+  score = Math.max(-10, Math.min(10, score));
+
+  const signal: 'BULL' | 'BEAR' | 'NEUTRAL' =
+    score >= 3 ? 'BULL' : score <= -3 ? 'BEAR' : 'NEUTRAL';
+
+  return { signal, score, reasons };
+}
+
+function MarketPulse({ quotes, loading }: { quotes: Record<string, QuoteSnap>; loading: boolean }) {
+  const sectors = SECTORS.map(s => quotes[s.symbol]?.changePercent ?? 0);
+  const { signal, score, reasons } = computePulse({
+    spy: quotes['SPY'],
+    qqq: quotes['QQQ'],
+    vix: quotes['^VIX'],
+    sectors,
+  });
+
+  const isBull = signal === 'BULL';
+  const isBear = signal === 'BEAR';
+
+  const signalCfg = {
+    BULL: {
+      border: 'border-terminal-green/50',
+      bg: 'from-terminal-green/15 to-terminal-green/5',
+      text: 'text-terminal-green',
+      label: '⬆ MARKET UP',
+      sub: 'Bullish conditions detected',
+      barColor: 'bg-terminal-green',
+    },
+    BEAR: {
+      border: 'border-terminal-red/50',
+      bg: 'from-terminal-red/15 to-terminal-red/5',
+      text: 'text-terminal-red',
+      label: '⬇ MARKET DOWN',
+      sub: 'Bearish conditions detected',
+      barColor: 'bg-terminal-red',
+    },
+    NEUTRAL: {
+      border: 'border-terminal-cyan/30',
+      bg: 'from-terminal-cyan/10 to-transparent',
+      text: 'text-terminal-cyan',
+      label: '→ MIXED / NEUTRAL',
+      sub: 'No clear directional bias',
+      barColor: 'bg-terminal-cyan',
+    },
+  }[signal];
+
+  // Score bar: -10..+10 mapped to 0..100%
+  const barPct = ((score + 10) / 20) * 100;
+
+  return (
+    <div className={`rounded-xl border-2 ${signalCfg.border} bg-gradient-to-br ${signalCfg.bg} p-4`}>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        {/* Big signal */}
+        <div className="flex items-center gap-4">
+          <div>
+            <p className={`text-2xl font-black tracking-tight ${signalCfg.text}`}>
+              {loading ? '· · ·' : signalCfg.label}
+            </p>
+            <p className="text-[11px] text-terminal-text-secondary mt-0.5">{signalCfg.sub}</p>
+          </div>
+
+          {/* Score gauge */}
+          {!loading && (
+            <div className="hidden sm:block">
+              <p className="text-[9px] text-terminal-text-secondary uppercase tracking-widest mb-1 text-center">
+                Pulse Score
+              </p>
+              <p className={`text-3xl font-black tabular-nums text-center ${signalCfg.text}`}>
+                {score > 0 ? '+' : ''}{score}
+              </p>
+              <p className="text-[9px] text-terminal-text-secondary text-center">/ ±10</p>
+            </div>
+          )}
+        </div>
+
+        {/* Reasons */}
+        {!loading && reasons.length > 0 && (
+          <div className="flex flex-col gap-1 flex-1 min-w-0 max-w-lg">
+            {reasons.slice(0, 3).map((r, i) => (
+              <p key={i} className="text-[11px] text-terminal-text-secondary flex items-center gap-1.5">
+                <span className={signalCfg.text}>{'•'}</span>
+                {r}
+              </p>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Bullish/Bearish bar */}
+      {!loading && (
+        <div className="mt-3 flex items-center gap-2">
+          <span className="text-[9px] text-terminal-red font-bold w-8">BEAR</span>
+          <div className="flex-1 h-1.5 bg-terminal-border rounded-full overflow-hidden relative">
+            <div
+              className={`absolute top-0 h-full rounded-full ${signalCfg.barColor} transition-all duration-700`}
+              style={{ width: `${barPct}%` }}
+            />
+            {/* Midpoint marker */}
+            <div className="absolute top-0 bottom-0 left-1/2 w-px bg-terminal-text-secondary/40" />
+          </div>
+          <span className="text-[9px] text-terminal-green font-bold w-8 text-right">BULL</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 const fmtPx = (p: number) =>
@@ -173,20 +342,6 @@ function USMarketsRow({ quotes, loading }: { quotes: Record<string, QuoteSnap>; 
 }
 
 // ── Section 2: Sector Heatmap ─────────────────────────────────────────────
-
-const SECTORS = [
-  { symbol: 'XLK',  name: 'Technology',    weight: 31 },
-  { symbol: 'XLF',  name: 'Financials',    weight: 13 },
-  { symbol: 'XLV',  name: 'Healthcare',    weight: 12 },
-  { symbol: 'XLY',  name: 'Consumer Disc', weight: 10 },
-  { symbol: 'XLC',  name: 'Comm Services', weight: 9 },
-  { symbol: 'XLI',  name: 'Industrials',   weight: 9 },
-  { symbol: 'XLP',  name: 'Staples',       weight: 6 },
-  { symbol: 'XLE',  name: 'Energy',        weight: 4 },
-  { symbol: 'XLB',  name: 'Materials',     weight: 3 },
-  { symbol: 'XLRE', name: 'Real Estate',   weight: 3 },
-  { symbol: 'XLU',  name: 'Utilities',     weight: 3 },
-];
 
 function heatColor(pct: number): string {
   if (pct >  2.5) return 'bg-terminal-green text-black border-terminal-green/0';
@@ -672,6 +827,9 @@ export default function Dashboard() {
           <span className="text-terminal-text-secondary/40">· auto-refreshes 60s</span>
         </div>
       </div>
+
+      {/* Market Pulse — instant UP/DOWN signal */}
+      <MarketPulse quotes={quotes} loading={loading} />
 
       {/* US Indices */}
       <USMarketsRow quotes={quotes} loading={loading} />
