@@ -12,6 +12,10 @@ import NotificationSettings from './components/Settings/NotificationSettings';
 import AIAnalysisPanel from './components/AIAnalysis/AIAnalysisPanel';
 import FuturesPanel from './components/Futures/FuturesPanel';
 import TradeJournal from './components/Journal/TradeJournal';
+import NewsFeed from './components/News/NewsFeed';
+import EarningsCalendar from './components/Earnings/EarningsCalendar';
+import EconomicCalendar from './components/Calendar/EconomicCalendar';
+import MarketHeatmap from './components/Heatmap/MarketHeatmap';
 import type { ScanResult, Alert, WatchlistItem, NotificationSettings as NS } from './types';
 
 function LoadingScreen() {
@@ -153,6 +157,10 @@ export default function App() {
       case 'ai-analysis':  return <AIAnalysisPanel />;
       case 'futures':      return <FuturesPanel />;
       case 'journal':      return <TradeJournal />;
+      case 'news':         return <NewsFeed />;
+      case 'earnings':     return <EarningsCalendar />;
+      case 'calendar':     return <EconomicCalendar />;
+      case 'heatmap':      return <MarketHeatmap />;
       default:             return <Dashboard />;
     }
   };

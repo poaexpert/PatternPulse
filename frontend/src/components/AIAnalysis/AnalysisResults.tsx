@@ -488,44 +488,119 @@ export default function AnalysisResults({ analysis, timeframe = '1d' }: Analysis
 
   const resolvedDiffers = resolvedSymbol && symbol && resolvedSymbol !== symbol;
 
-  /* ── 1. Direction Banner (GO LONG / GO SHORT) ────────────────── */
+  /* ── 1. Direction Banner (BUY / SELL / HOLD) ────────────────── */
   const dir = swingSetup.direction;
   const isLong = dir === 'LONG';
   const isShort = dir === 'SHORT';
 
+  // Build 3-bullet plain-English summary from indicators
+  const buildSummaryBullets = () => {
+    const bullets: { icon: string; text: string; color: string }[] = [];
+
+    // Trend bullet
+    const trendDir = trend.direction;
+    const trendStr = trend.strength;
+    const emaRelation = trendDir === 'UP' ? 'EMA9>20>50' : trendDir === 'DOWN' ? 'EMA9<20<50' : 'mixed EMAs';
+    bullets.push({
+      icon: trendDir === 'UP' ? '✓' : trendDir === 'DOWN' ? '✓' : '→',
+      text: `Trend: ${trendDir} (${trendStr}, ${emaRelation})`,
+      color: trendDir === 'UP' ? 'text-terminal-green' : trendDir === 'DOWN' ? 'text-terminal-red' : 'text-terminal-text-secondary',
+    });
+
+    // MACD bullet
+    const macdSig = indicators.macdSignal;
+    const macdLabel = macdSig === 'BULLISH' ? 'Positive (MACD bullish)' : macdSig === 'BEARISH' ? 'Negative (MACD bearish)' : `Neutral (${macdSig})`;
+    const macdIcon = macdSig === 'BULLISH' ? '✓' : macdSig === 'BEARISH' ? '✗' : '→';
+    bullets.push({
+      icon: macdIcon,
+      text: `Momentum: ${macdLabel}`,
+      color: macdSig === 'BULLISH' ? 'text-terminal-green' : macdSig === 'BEARISH' ? 'text-terminal-red' : 'text-terminal-text-secondary',
+    });
+
+    // RSI bullet
+    const rsiSig = indicators.rsiSignal;
+    const rsiWarning = rsiSig === 'OVERBOUGHT' ? ' (overbought — caution)' : rsiSig === 'OVERSOLD' ? ' (oversold — potential bounce)' : rsiSig === 'DIVERGENCE_BULLISH' ? ' (bullish divergence)' : rsiSig === 'DIVERGENCE_BEARISH' ? ' (bearish divergence)' : '';
+    const rsiIcon = rsiSig === 'OVERBOUGHT' || rsiSig === 'DIVERGENCE_BEARISH' ? '⚠' : rsiSig === 'OVERSOLD' || rsiSig === 'DIVERGENCE_BULLISH' ? '✓' : '✓';
+    const rsiColor = rsiSig === 'OVERBOUGHT' ? 'text-terminal-yellow' : rsiSig === 'OVERSOLD' ? 'text-terminal-green' : rsiSig === 'DIVERGENCE_BEARISH' ? 'text-terminal-red' : rsiSig === 'DIVERGENCE_BULLISH' ? 'text-terminal-green' : 'text-terminal-text-secondary';
+    bullets.push({
+      icon: rsiIcon,
+      text: `RSI: ${rsiSig}${rsiWarning}`,
+      color: rsiColor,
+    });
+
+    return bullets;
+  };
+
+  const summaryBullets = buildSummaryBullets();
+
+  // Conviction meter (repurpose signalStrength)
+  const convictionScore = signalStrength;
+  const convictionColor = convictionScore >= 8 ? 'bg-terminal-green' : convictionScore >= 5 ? 'bg-terminal-yellow' : 'bg-terminal-red';
+  const convictionTextColor = convictionScore >= 8 ? 'text-terminal-green' : convictionScore >= 5 ? 'text-terminal-yellow' : 'text-terminal-red';
+
   const directionBanner = (isLong || isShort) ? (
     <div className={`rounded-xl p-5 border-2 ${isLong
-      ? 'bg-gradient-to-r from-terminal-green/25 to-terminal-green/5 border-terminal-green/50'
-      : 'bg-gradient-to-r from-terminal-red/25 to-terminal-red/5 border-terminal-red/50'
+      ? 'bg-gradient-to-br from-terminal-green/20 to-terminal-green/5 border-terminal-green/50'
+      : 'bg-gradient-to-br from-terminal-red/20 to-terminal-red/5 border-terminal-red/50'
     }`}>
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className={`text-2xl font-black tracking-tight ${isLong ? 'text-terminal-green' : 'text-terminal-red'}`}>
-            {isLong ? '▲ GO LONG' : '▼ GO SHORT'}
-          </p>
-          <p className="text-terminal-text-secondary text-xs mt-1 leading-relaxed">
-            {swingSetup.description}
-          </p>
+      {/* Top row: Big signal badge + price */}
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="flex items-center gap-4">
+          <div className={`rounded-xl px-5 py-3 border-2 ${isLong
+            ? 'bg-terminal-green/20 border-terminal-green/60'
+            : 'bg-terminal-red/20 border-terminal-red/60'
+          }`}>
+            <p className={`text-4xl font-black tracking-tight leading-none ${isLong ? 'text-terminal-green' : 'text-terminal-red'}`}>
+              {isLong ? '⬆' : '⬇'}
+            </p>
+            <p className={`text-lg font-black tracking-widest mt-1 ${isLong ? 'text-terminal-green' : 'text-terminal-red'}`}>
+              {isLong ? 'BUY' : 'SELL'}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] text-terminal-text-secondary uppercase tracking-widest mb-1">Conviction</p>
+            <div className="flex items-center gap-2">
+              <span className={`text-2xl font-black tabular-nums ${convictionTextColor}`}>
+                {convictionScore}<span className="text-sm font-normal text-terminal-text-secondary">/10</span>
+              </span>
+            </div>
+            {/* Conviction bar */}
+            <div className="flex gap-0.5 mt-1.5">
+              {Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className={`h-2 w-4 rounded-sm ${i < convictionScore ? convictionColor : 'bg-terminal-border'}`} />
+              ))}
+            </div>
+          </div>
         </div>
         {currentPrice != null && (
           <div className="text-right shrink-0">
-            <p className="text-[10px] text-terminal-text-secondary uppercase tracking-wider">Price</p>
-            <p className="text-2xl font-bold tabular-nums text-terminal-text-primary">{formatPrice(currentPrice)}</p>
+            <p className="text-[10px] text-terminal-text-secondary uppercase tracking-wider">Current Price</p>
+            <p className="text-3xl font-bold tabular-nums text-terminal-text-primary">{formatPrice(currentPrice)}</p>
           </div>
         )}
       </div>
 
+      {/* Plain-English summary bullets */}
+      <div className="space-y-1.5 mb-4 bg-terminal-bg/40 rounded-lg px-3 py-3">
+        {summaryBullets.map((b, i) => (
+          <p key={i} className={`text-xs flex items-start gap-2 ${b.color}`}>
+            <span className="shrink-0 mt-0.5">{b.icon}</span>
+            <span>{b.text}</span>
+          </p>
+        ))}
+      </div>
+
       {/* Entry / Stop / Target grid */}
       {swingSetup.exists && (
-        <div className="grid grid-cols-3 gap-2 mt-4">
+        <div className="grid grid-cols-3 gap-2">
           {[
             { label: 'Entry', price: swingSetup.entry, cls: 'border-terminal-cyan/30 bg-terminal-cyan/10', tcls: 'text-terminal-cyan' },
             { label: 'Stop Loss', price: swingSetup.stopLoss, cls: 'border-terminal-red/30 bg-terminal-red/10', tcls: 'text-terminal-red' },
             { label: 'Target 1', price: swingSetup.target1, cls: 'border-terminal-green/30 bg-terminal-green/10', tcls: 'text-terminal-green' },
           ].map(({ label, price, cls, tcls }) => (
-            <div key={label} className={`rounded-lg p-2.5 text-center border ${cls}`}>
-              <p className="text-[10px] text-terminal-text-secondary mb-1">{label}</p>
-              <p className={`text-sm font-bold tabular-nums ${tcls}`}>{formatPrice(price)}</p>
+            <div key={label} className={`rounded-lg p-3 text-center border ${cls}`}>
+              <p className="text-[10px] text-terminal-text-secondary mb-1 uppercase tracking-wider">{label}</p>
+              <p className={`text-base font-bold tabular-nums ${tcls}`}>{formatPrice(price)}</p>
               {price !== null && swingSetup.entry !== null && price !== swingSetup.entry && (
                 <p className={`text-[10px] mt-0.5 ${tcls}`}>{pctFromEntry(price, swingSetup.entry)}</p>
               )}
@@ -540,25 +615,59 @@ export default function AnalysisResults({ analysis, timeframe = '1d' }: Analysis
           <span className="text-terminal-green font-semibold">{formatPrice(swingSetup.target2)}</span>
           <span className="text-terminal-green/70">{pctFromEntry(swingSetup.target2, swingSetup.entry)}</span>
           {swingSetup.riskReward !== null && (
-            <span className="ml-auto text-terminal-cyan font-bold">R:R 1:{swingSetup.riskReward.toFixed(1)}</span>
+            <span className="ml-auto text-terminal-cyan font-bold text-sm">R:R 1:{swingSetup.riskReward.toFixed(1)}</span>
           )}
         </div>
       )}
+
+      {swingSetup.description && (
+        <p className="text-[11px] text-terminal-text-secondary mt-3 leading-relaxed border-t border-terminal-border/50 pt-3">
+          {swingSetup.description}
+        </p>
+      )}
     </div>
   ) : (
-    /* No clear direction — show neutral card with price */
-    <div className="rounded-xl p-4 border border-terminal-border bg-terminal-card/50">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-terminal-text-secondary font-semibold text-sm">→ No Clear Direction</p>
-          <p className="text-terminal-text-secondary/70 text-xs mt-0.5">Wait for a clearer setup before entering</p>
+    /* No clear direction — HOLD */
+    <div className="rounded-xl p-5 border-2 border-terminal-cyan/30 bg-terminal-cyan/5">
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="flex items-center gap-4">
+          <div className="rounded-xl px-5 py-3 border-2 bg-terminal-cyan/10 border-terminal-cyan/40">
+            <p className="text-4xl font-black tracking-tight leading-none text-terminal-cyan">→</p>
+            <p className="text-lg font-black tracking-widest mt-1 text-terminal-cyan">HOLD</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-terminal-text-secondary uppercase tracking-widest mb-1">Conviction</p>
+            <div className="flex items-center gap-2">
+              <span className={`text-2xl font-black tabular-nums ${convictionTextColor}`}>
+                {convictionScore}<span className="text-sm font-normal text-terminal-text-secondary">/10</span>
+              </span>
+            </div>
+            <div className="flex gap-0.5 mt-1.5">
+              {Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className={`h-2 w-4 rounded-sm ${i < convictionScore ? convictionColor : 'bg-terminal-border'}`} />
+              ))}
+            </div>
+          </div>
         </div>
         {currentPrice != null && (
           <div className="text-right shrink-0">
-            <p className="text-[10px] text-terminal-text-secondary uppercase tracking-wider">Price</p>
-            <p className="text-xl font-bold tabular-nums text-terminal-text-primary">{formatPrice(currentPrice)}</p>
+            <p className="text-[10px] text-terminal-text-secondary uppercase tracking-wider">Current Price</p>
+            <p className="text-3xl font-bold tabular-nums text-terminal-text-primary">{formatPrice(currentPrice)}</p>
           </div>
         )}
+      </div>
+
+      {/* Plain-English summary bullets */}
+      <div className="space-y-1.5 bg-terminal-bg/40 rounded-lg px-3 py-3">
+        {summaryBullets.map((b, i) => (
+          <p key={i} className={`text-xs flex items-start gap-2 ${b.color}`}>
+            <span className="shrink-0 mt-0.5">{b.icon}</span>
+            <span>{b.text}</span>
+          </p>
+        ))}
+        <p className="text-xs text-terminal-text-secondary/70 pt-1">
+          → Wait for a clearer setup — mixed signals across timeframes
+        </p>
       </div>
     </div>
   );

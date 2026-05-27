@@ -17,7 +17,11 @@ const VIEW_META: Record<ActiveView, ViewMeta> = {
   settings: { title: 'Settings', subtitle: 'Notifications & configuration' },
   'ai-analysis': { title: 'Technical Analysis', subtitle: 'Free technical analysis via Yahoo Finance' },
   futures: { title: 'Futures Markets', subtitle: 'Live futures quotes & monitoring' },
-  journal: { title: 'Trade Journal', subtitle: 'Log entries, exits, and track performance' },
+  journal:  { title: 'Trade Journal',      subtitle: 'Log entries, exits, and track performance' },
+  news:     { title: 'Market News',        subtitle: 'Latest headlines from all markets' },
+  earnings: { title: 'Earnings Calendar',  subtitle: 'Upcoming & recent earnings reports' },
+  calendar: { title: 'Economic Calendar',  subtitle: 'Key macro events & Fed schedule' },
+  heatmap:  { title: 'Market Heatmap',     subtitle: 'Sector & asset performance at a glance' },
 };
 
 function TickerTape() {

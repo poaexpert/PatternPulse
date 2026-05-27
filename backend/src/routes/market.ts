@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { fetchBatchQuotes, fetchHistoricalData, fetchIntradayBars, fetchMarketOverview, fetchNews } from '../data/market';
+import axios from 'axios';
+import { fetchBatchQuotes, fetchHistoricalData, fetchIntradayBars, fetchMarketOverview, fetchNews, type NewsItem } from '../data/market';
 import { store } from '../store';
 import * as indicators from '../indicators';
 import { logError } from '../utils/logger';
@@ -91,7 +92,7 @@ router.get('/overview', async (req: Request, res: Response) => {
  * Batch quote fetch for multiple symbols.
  * Query: symbols=SPY,QQQ,XLK,...  (comma-separated, max 60)
  */
-router.get('/market/quotes', async (req: Request, res: Response) => {
+router.get('/quotes', async (req: Request, res: Response) => {
   const symbolsParam = req.query.symbols as string;
   if (!symbolsParam || !symbolsParam.trim()) {
     return res.status(400).json({ success: false, message: 'symbols query param required' });
@@ -111,6 +112,10 @@ router.get('/market/quotes', async (req: Request, res: Response) => {
 });
 
 
+/**
+ * GET /api/stock/:symbol/quote
+ * Get current quote for a symbol.
+ */
 router.get('/stock/:symbol/quote', async (req: Request, res: Response) => {
   const { symbol } = req.params;
   try {
@@ -262,6 +267,131 @@ router.get('/stock/:symbol/news', async (req: Request, res: Response) => {
     logError(`Failed to fetch news for ${symbol}`, err);
     return res.status(500).json({ success: false, message: 'Failed to fetch news' });
   }
+});
+
+/**
+ * GET /api/market/news?symbols=AAPL,TSLA,...
+ * Fetch news for multiple symbols, merged, deduplicated, sorted by date.
+ */
+router.get('/news', async (req: Request, res: Response) => {
+  const symbolsParam = req.query.symbols as string;
+  if (!symbolsParam || !symbolsParam.trim()) {
+    return res.status(400).json({ success: false, message: 'symbols query param required' });
+  }
+  const symbols = symbolsParam
+    .split(',')
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean)
+    .slice(0, 10);
+
+  try {
+    const newsArrays = await Promise.allSettled(
+      symbols.map(async (sym) => {
+        const items = await fetchNews(sym);
+        return items.map((item: NewsItem) => ({ ...item, symbol: sym }));
+      })
+    );
+
+    const allNews: (NewsItem & { symbol: string })[] = [];
+    for (const result of newsArrays) {
+      if (result.status === 'fulfilled') {
+        allNews.push(...result.value);
+      }
+    }
+
+    // Deduplicate by title
+    const seen = new Set<string>();
+    const deduped = allNews.filter((item) => {
+      const title = String(item.title ?? '').toLowerCase().trim();
+      if (seen.has(title)) return false;
+      seen.add(title);
+      return true;
+    });
+
+    // Sort by pubDate desc
+    deduped.sort((a, b) => {
+      const da = new Date(String(a.pubDate ?? 0)).getTime();
+      const db = new Date(String(b.pubDate ?? 0)).getTime();
+      return db - da;
+    });
+
+    return res.json({ success: true, news: deduped.slice(0, 30) });
+  } catch (err) {
+    logError('Failed to fetch multi-symbol news', err);
+    return res.status(500).json({ success: false, message: 'Failed to fetch news' });
+  }
+});
+
+/**
+ * GET /api/market/earnings
+ * Fetch upcoming earnings from FMP demo API.
+ */
+router.get('/earnings', async (req: Request, res: Response) => {
+  try {
+    const from = new Date();
+    const to = new Date();
+    to.setDate(to.getDate() + 14);
+
+    const fmt = (d: Date) => d.toISOString().split('T')[0];
+    const url = `https://financialmodelingprep.com/api/v3/earning_calendar?from=${fmt(from)}&to=${fmt(to)}&apikey=demo`;
+
+    let earnings: Record<string, unknown>[] = [];
+    try {
+      const response = await axios.get(url, { timeout: 8000 });
+      const data = response.data;
+      if (Array.isArray(data)) {
+        earnings = data.map((item: Record<string, unknown>) => ({
+          symbol: item.symbol ?? '',
+          name: item.name ?? item.symbol ?? '',
+          date: item.date ?? '',
+          epsEstimate: item.epsEstimated ?? null,
+          epsActual: item.eps ?? null,
+          revenueEstimate: item.revenueEstimated ?? null,
+          revenueActual: item.revenue ?? null,
+          time: (item.time as string)?.toLowerCase()?.includes('bmo') ? 'BMO' : 'AMC',
+        }));
+      }
+    } catch {
+      // FMP failed — return empty array
+    }
+
+    return res.json({ success: true, earnings });
+  } catch (err) {
+    logError('Failed to fetch earnings', err);
+    return res.json({ success: true, earnings: [] });
+  }
+});
+
+/**
+ * GET /api/market/economic
+ * Return hardcoded major US economic events for the next ~60 days.
+ */
+router.get('/economic', async (_req: Request, res: Response) => {
+  const events = [
+    { date: '2025-05-30', name: 'PCE Inflation (April)', impact: 'HIGH', category: 'INFLATION', description: 'Personal Consumption Expenditures Price Index — the Fed\'s preferred inflation measure.' },
+    { date: '2025-06-04', name: 'ISM Manufacturing PMI', impact: 'MEDIUM', category: 'GROWTH', description: 'Manufacturing sector activity survey — expansion above 50.' },
+    { date: '2025-06-06', name: 'Non-Farm Payrolls (May)', impact: 'HIGH', category: 'JOBS', description: 'Monthly employment report — key indicator for Fed policy decisions.' },
+    { date: '2025-06-11', name: 'CPI (May)', impact: 'HIGH', category: 'INFLATION', description: 'Consumer Price Index — key inflation gauge. Core CPI ex-food/energy watched closely.' },
+    { date: '2025-06-12', name: 'PPI (May)', impact: 'MEDIUM', category: 'INFLATION', description: 'Producer Price Index — upstream inflation pipeline indicator.' },
+    { date: '2025-06-17', name: 'FOMC Meeting (Day 1)', impact: 'HIGH', category: 'FED', description: 'Federal Open Market Committee two-day meeting — rate decision announcement on Day 2.' },
+    { date: '2025-06-18', name: 'FOMC Rate Decision', impact: 'HIGH', category: 'FED', description: 'Fed announces interest rate decision + press conference with Chair Powell.' },
+    { date: '2025-06-20', name: 'Retail Sales', impact: 'MEDIUM', category: 'SPENDING', description: 'Monthly retail sales data — key consumer spending gauge.' },
+    { date: '2025-06-26', name: 'GDP Q1 Final', impact: 'MEDIUM', category: 'GROWTH', description: 'Final estimate of Q1 2025 GDP — third and final revision.' },
+    { date: '2025-06-27', name: 'PCE Inflation (May)', impact: 'HIGH', category: 'INFLATION', description: 'Personal Consumption Expenditures — Fed\'s preferred inflation gauge.' },
+    { date: '2025-07-03', name: 'Non-Farm Payrolls (June)', impact: 'HIGH', category: 'JOBS', description: 'Monthly jobs report released Thursday (Independence Day holiday week).' },
+    { date: '2025-07-11', name: 'CPI (June)', impact: 'HIGH', category: 'INFLATION', description: 'Consumer Price Index — mid-summer inflation reading.' },
+    { date: '2025-07-16', name: 'Retail Sales (June)', impact: 'MEDIUM', category: 'SPENDING', description: 'June consumer spending report.' },
+    { date: '2025-07-29', name: 'FOMC Meeting (Day 1)', impact: 'HIGH', category: 'FED', description: 'July FOMC two-day meeting begins.' },
+    { date: '2025-07-30', name: 'GDP Q2 Advance + FOMC Day 2', impact: 'HIGH', category: 'GROWTH', description: 'First estimate of Q2 2025 GDP AND FOMC rate decision — massive double catalyst day.' },
+    { date: '2025-07-31', name: 'PCE Inflation (June)', impact: 'HIGH', category: 'INFLATION', description: 'June PCE inflation — Fed\'s preferred gauge, day after FOMC.' },
+    { date: '2025-08-01', name: 'Non-Farm Payrolls (July)', impact: 'HIGH', category: 'JOBS', description: 'July jobs report — first major economic read after July FOMC.' },
+    { date: '2025-08-12', name: 'CPI (July)', impact: 'HIGH', category: 'INFLATION', description: 'July Consumer Price Index — key summer inflation reading.' },
+  ];
+
+  // Sort by date
+  events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  return res.json({ success: true, events });
 });
 
 export default router;
