@@ -75,7 +75,7 @@ const CHART_THEME = {
   volume: '#374151',
 };
 
-export default function CandlestickChart({ symbol, timeframe: tfProp = '1D', swingSetup, height = 300, showTimeframePicker = false }: CandlestickChartProps) {
+export default function CandlestickChart({ symbol, timeframe: tfProp = '1D', swingSetup, height = 300 }: CandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -117,7 +117,7 @@ export default function CandlestickChart({ symbol, timeframe: tfProp = '1D', swi
       },
       timeScale: {
         borderVisible: false,
-        timeVisible: timeframe !== '1d',
+        timeVisible: activeTf !== '1D' && activeTf !== '1W' && activeTf !== '1M' && activeTf !== '1Y' && activeTf !== '5Y' && activeTf !== 'All',
         secondsVisible: false,
         rightOffset: 8,
       },

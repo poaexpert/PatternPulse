@@ -17,6 +17,7 @@ const VIEW_META: Record<ActiveView, ViewMeta> = {
   settings: { title: 'Settings', subtitle: 'Notifications & configuration' },
   'ai-analysis': { title: 'Technical Analysis', subtitle: 'Free technical analysis via Yahoo Finance' },
   futures: { title: 'Futures Markets', subtitle: 'Live futures quotes & monitoring' },
+  journal: { title: 'Trade Journal', subtitle: 'Log entries, exits, and track performance' },
 };
 
 function TickerTape() {
