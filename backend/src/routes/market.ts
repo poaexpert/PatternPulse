@@ -87,9 +87,30 @@ router.get('/overview', async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/stock/:symbol/quote
- * Get current quote for a symbol.
+ * GET /api/market/quotes
+ * Batch quote fetch for multiple symbols.
+ * Query: symbols=SPY,QQQ,XLK,...  (comma-separated, max 60)
  */
+router.get('/market/quotes', async (req: Request, res: Response) => {
+  const symbolsParam = req.query.symbols as string;
+  if (!symbolsParam || !symbolsParam.trim()) {
+    return res.status(400).json({ success: false, message: 'symbols query param required' });
+  }
+  const symbols = symbolsParam
+    .split(',')
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean)
+    .slice(0, 60);
+  try {
+    const quotes = await fetchBatchQuotes(symbols);
+    return res.json({ success: true, quotes, count: quotes.length });
+  } catch (err) {
+    logError('Batch quotes failed', err);
+    return res.status(500).json({ success: false, message: 'Failed to fetch quotes' });
+  }
+});
+
+
 router.get('/stock/:symbol/quote', async (req: Request, res: Response) => {
   const { symbol } = req.params;
   try {
