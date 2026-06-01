@@ -84,6 +84,7 @@ function WatchlistRow({
   quote: QuoteData | null;
   onRemove: (symbol: string) => void;
   onUpdate: (symbol: string, updates: Partial<WatchlistItem>) => void;
+  onAnalyze?: (symbol: string) => void;
 }) {
   const [editingNotes, setEditingNotes] = useState(false);
   const [notes, setNotes] = useState(item.notes || '');
@@ -91,6 +92,11 @@ function WatchlistRow({
   const [stopLoss, setStopLoss] = useState(item.stopLoss?.toString() || '');
   const [targetPrice, setTargetPrice] = useState(item.targetPrice?.toString() || '');
   const [expanded, setExpanded] = useState(false);
+
+  const handleRowClick = () => {
+    if (onAnalyze) { onAnalyze(item.symbol); }
+    else setExpanded(!expanded);
+  };
 
   const price = quote?.price ?? null;
   const change = quote?.changePercent ?? null;
@@ -127,7 +133,7 @@ function WatchlistRow({
           ${isNearAlert ? 'bg-terminal-yellow/5' : ''}
           ${isNearStop ? 'bg-terminal-red/5' : ''}
         `}
-        onClick={() => setExpanded(!expanded)}
+        onClick={handleRowClick}
       >
         {/* Symbol */}
         <td className="px-4 py-3">
@@ -212,12 +218,20 @@ function WatchlistRow({
 
         {/* Actions */}
         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={() => onRemove(item.symbol)}
-            className="w-7 h-7 flex items-center justify-center rounded bg-terminal-red/10 text-terminal-red hover:bg-terminal-red/20 transition-colors text-xs"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-1">
+            {onAnalyze && (
+              <button onClick={() => onAnalyze(item.symbol)}
+                className="px-2 py-1 rounded text-[10px] font-semibold bg-terminal-cyan/10 text-terminal-cyan hover:bg-terminal-cyan/20 transition-colors">
+                Analyze
+              </button>
+            )}
+            <button
+              onClick={() => onRemove(item.symbol)}
+              className="w-7 h-7 flex items-center justify-center rounded bg-terminal-red/10 text-terminal-red hover:bg-terminal-red/20 transition-colors text-xs"
+            >
+              ✕
+            </button>
+          </div>
         </td>
       </tr>
 
@@ -259,7 +273,7 @@ function WatchlistRow({
 // ─── Main Watchlist Panel ─────────────────────────────────────────────────────
 
 export default function WatchlistPanel() {
-  const { watchlist, removeFromWatchlist, updateWatchlistItem } = useStore();
+  const { watchlist, removeFromWatchlist, updateWatchlistItem, setSelectedSymbol, setActiveView } = useStore();
   const [quotes, setQuotes] = useState<Record<string, QuoteData>>({});
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [sortBy, setSortBy] = useState<'symbol' | 'change' | 'price' | 'added'>('added');
@@ -399,6 +413,7 @@ export default function WatchlistPanel() {
                     quote={quotes[item.symbol] ?? null}
                     onRemove={handleRemove}
                     onUpdate={handleUpdate}
+                    onAnalyze={(sym) => { setSelectedSymbol(sym); setActiveView('ai-analysis'); }}
                   />
                 ))}
               </tbody>

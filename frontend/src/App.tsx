@@ -18,23 +18,12 @@ import EconomicCalendar from './components/Calendar/EconomicCalendar';
 import MarketHeatmap from './components/Heatmap/MarketHeatmap';
 import ChartPatternScanner from './components/PatternScanner/ChartPatternScanner';
 import RiskCalculator from './components/RiskCalc/RiskCalculator';
-import CryptoDashboard from './components/Crypto/CryptoDashboard';
 import MultiTimeframeAnalysis from './components/MultiTF/MultiTimeframeAnalysis';
+import CryptoDashboard from './components/Crypto/CryptoDashboard';
+import PaperTrading from './components/PaperTrade/PaperTrading';
+import MarketScreener from './components/Screener/MarketScreener';
+import OptionsChain from './components/Options/OptionsChain';
 import type { ScanResult, Alert, WatchlistItem, NotificationSettings as NS } from './types';
-
-// Temporary placeholders — will be replaced with full components
-function ComingSoonPanel({ title, icon }: { title: string; icon: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center h-64 gap-4 text-terminal-text-secondary">
-      <span className="text-5xl">{icon}</span>
-      <p className="text-lg font-bold text-terminal-text-primary">{title}</p>
-      <p className="text-sm">Coming soon — check back after next deploy</p>
-    </div>
-  );
-}
-function PaperTradePlaceholder() { return <ComingSoonPanel title="Paper Trading" icon="💰" />; }
-function ScreenerPlaceholder()   { return <ComingSoonPanel title="Market Screener" icon="🔍" />; }
-function OptionsPlaceholder()    { return <ComingSoonPanel title="Options Chain" icon="📊" />; }
 
 function LoadingScreen() {
   return (
@@ -181,11 +170,11 @@ export default function App() {
       case 'heatmap':          return <MarketHeatmap />;
       case 'pattern-scanner':  return <ChartPatternScanner />;
       case 'risk-calc':        return <RiskCalculator />;
-      case 'crypto':           return <CryptoDashboard />;
       case 'multi-tf':         return <MultiTimeframeAnalysis />;
-      case 'paper-trade':      return <PaperTradePlaceholder />;
-      case 'screener':         return <ScreenerPlaceholder />;
-      case 'options':          return <OptionsPlaceholder />;
+      case 'crypto':           return <CryptoDashboard />;
+      case 'paper-trade':      return <PaperTrading />;
+      case 'screener':         return <MarketScreener />;
+      case 'options':          return <OptionsChain />;
       default:                 return <Dashboard />;
     }
   };

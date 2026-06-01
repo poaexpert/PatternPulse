@@ -51,6 +51,19 @@ function SkeletonCard() {
   );
 }
 
+const POS_WORDS = ['bullish','surge','rally','gain','profit','beat','upgrade','record','soar','jump','rise','breakthrough','positive','strong','growth','outperform'];
+const NEG_WORDS = ['bearish','crash','decline','loss','miss','downgrade','recession','plunge','fall','drop','weak','fail','concern','risk','warning','cut'];
+
+function getSentiment(title: string): { label: string; cls: string } | null {
+  const t = title.toLowerCase();
+  const posScore = POS_WORDS.filter(w => t.includes(w)).length;
+  const negScore = NEG_WORDS.filter(w => t.includes(w)).length;
+  if (posScore > negScore) return { label: 'POSITIVE', cls: 'bg-terminal-green/10 text-terminal-green border-terminal-green/25' };
+  if (negScore > posScore) return { label: 'NEGATIVE', cls: 'bg-terminal-red/10 text-terminal-red border-terminal-red/25' };
+  if (posScore > 0 && negScore > 0) return { label: 'MIXED', cls: 'bg-terminal-yellow/10 text-terminal-yellow border-terminal-yellow/25' };
+  return null;
+}
+
 function NewsCard({ item }: { item: NewsItem }) {
   const symbolColor: Record<string, string> = {
     SPY: 'bg-terminal-cyan/10 text-terminal-cyan border-terminal-cyan/25',
@@ -60,6 +73,7 @@ function NewsCard({ item }: { item: NewsItem }) {
     NVDA: 'bg-terminal-green/10 text-terminal-green border-terminal-green/25',
   };
   const badgeCls = symbolColor[item.symbol] ?? 'bg-terminal-border/40 text-terminal-text-secondary border-terminal-border';
+  const sentiment = getSentiment(item.title);
 
   return (
     <a
@@ -83,6 +97,11 @@ function NewsCard({ item }: { item: NewsItem }) {
         <span className="text-[10px] px-1.5 py-0.5 rounded bg-terminal-bg border border-terminal-border text-terminal-text-secondary">
           {item.source}
         </span>
+        {sentiment && (
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${sentiment.cls}`}>
+            {sentiment.label}
+          </span>
+        )}
         <span className="text-[10px] text-terminal-text-secondary/60 ml-auto">
           {timeAgo(item.pubDate)}
         </span>
