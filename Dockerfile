@@ -10,10 +10,10 @@ RUN python3.11 -m venv /opt/pyenv \
     && /opt/pyenv/bin/pip install --no-cache-dir -r requirements.txt
 
 # Node deps (cached unless package files change)
-COPY package.json package-lock.json ./
+COPY package.json ./
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
-RUN npm ci
+RUN npm install
 
 # Source + build
 COPY . .
