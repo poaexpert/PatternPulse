@@ -21,7 +21,14 @@ const VIEW_META: Record<ActiveView, ViewMeta> = {
   news:     { title: 'Market News',        subtitle: 'Latest headlines from all markets' },
   earnings: { title: 'Earnings Calendar',  subtitle: 'Upcoming & recent earnings reports' },
   calendar: { title: 'Economic Calendar',  subtitle: 'Key macro events & Fed schedule' },
-  heatmap:  { title: 'Market Heatmap',     subtitle: 'Sector & asset performance at a glance' },
+  heatmap:         { title: 'Market Heatmap',      subtitle: 'Sector & asset performance at a glance' },
+  'pattern-scanner': { title: 'Pattern Scanner',   subtitle: 'Upload a chart screenshot for pattern detection' },
+  'risk-calc':       { title: 'Risk Calculator',   subtitle: 'Position sizing, R:R analysis & Kelly criterion' },
+  'multi-tf':        { title: 'Multi-Timeframe',   subtitle: 'Simultaneous analysis across 4 timeframes' },
+  'crypto':          { title: 'Crypto Dashboard',  subtitle: 'Bitcoin, Ethereum and crypto futures markets' },
+  'paper-trade':     { title: 'Paper Trading',     subtitle: 'Virtual portfolio with $100k starting capital' },
+  'screener':        { title: 'Market Screener',   subtitle: 'Filter stocks & ETFs by price, change, volume' },
+  'options':         { title: 'Options Chain',     subtitle: 'Live options chains, OI, IV & max pain' },
 };
 
 function TickerTape() {

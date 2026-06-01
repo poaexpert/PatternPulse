@@ -302,6 +302,7 @@ const US_MARKETS = [
 ];
 
 function USMarketsRow({ quotes, loading }: { quotes: Record<string, QuoteSnap>; loading: boolean }) {
+  const { setSelectedSymbol, setActiveView } = useStore();
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
       {US_MARKETS.map(({ symbol, label, isVix }) => {
@@ -311,8 +312,9 @@ function USMarketsRow({ quotes, loading }: { quotes: Record<string, QuoteSnap>; 
         const borderCls = isVix
           ? isHigh ? 'border-terminal-red/40' : 'border-terminal-green/30'
           : pct >= 0 ? 'border-terminal-green/25' : 'border-terminal-red/25';
+        const navSymbol = isVix ? '^VIX' : symbol;
         return (
-          <div key={symbol} className={`bg-terminal-card border ${borderCls} rounded-xl p-3 flex flex-col gap-1`}>
+          <div key={symbol} onClick={() => { setSelectedSymbol(navSymbol); setActiveView('ai-analysis'); }} className={`bg-terminal-card border ${borderCls} rounded-xl p-3 flex flex-col gap-1 cursor-pointer hover:opacity-90 transition-opacity`}>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-terminal-text-secondary uppercase tracking-widest">{label}</span>
               {isVix ? (
@@ -356,6 +358,7 @@ function heatColor(pct: number): string {
 }
 
 function SectorHeatmap({ quotes, loading }: { quotes: Record<string, QuoteSnap>; loading: boolean }) {
+  const { setSelectedSymbol, setActiveView } = useStore();
   const winners = SECTORS.filter(s => (quotes[s.symbol]?.changePercent ?? 0) > 0).length;
   const losers = SECTORS.filter(s => (quotes[s.symbol]?.changePercent ?? 0) < 0).length;
 
@@ -388,7 +391,8 @@ function SectorHeatmap({ quotes, loading }: { quotes: Record<string, QuoteSnap>;
             <div
               key={symbol}
               title={`${name}: ${q ? fmtPx(q.price) : '—'}`}
-              className={`rounded-lg border p-2 text-center cursor-default hover:scale-105 transition-transform ${heatColor(pct)}`}
+              onClick={() => { setSelectedSymbol(symbol); setActiveView('ai-analysis'); }}
+              className={`rounded-lg border p-2 text-center cursor-pointer hover:scale-105 hover:opacity-90 transition-transform ${heatColor(pct)}`}
               style={{ fontSize: weight > 15 ? '11px' : '10px' }}
             >
               <div className="font-bold tracking-tight">{symbol}</div>
@@ -438,6 +442,7 @@ const GLOBAL_REGIONS: { region: string; markets: { symbol: string; name: string;
 ];
 
 function GlobalMarketsPanel({ quotes, loading }: { quotes: Record<string, QuoteSnap>; loading: boolean }) {
+  const { setSelectedSymbol, setActiveView } = useStore();
   return (
     <div className="bg-terminal-card border border-terminal-border rounded-xl p-4">
       <div className="flex items-center gap-2 mb-3">
@@ -454,7 +459,7 @@ function GlobalMarketsPanel({ quotes, loading }: { quotes: Record<string, QuoteS
                 const pct = q?.changePercent ?? 0;
                 const up = pct >= 0;
                 return (
-                  <div key={symbol} className={`flex items-center gap-2 px-2.5 py-2 rounded-lg bg-terminal-bg border ${up ? 'border-terminal-green/15' : 'border-terminal-red/15'}`}>
+                  <div key={symbol} onClick={() => { setSelectedSymbol(symbol); setActiveView('ai-analysis'); }} className={`flex items-center gap-2 px-2.5 py-2 rounded-lg bg-terminal-bg border cursor-pointer hover:opacity-90 transition-opacity ${up ? 'border-terminal-green/15' : 'border-terminal-red/15'}`}>
                     <span className="text-base">{flag}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold text-terminal-text-primary leading-none">{name}</p>
@@ -503,6 +508,7 @@ const BONDS = [
 ];
 
 function CommoditiesPanel({ quotes, loading }: { quotes: Record<string, QuoteSnap>; loading: boolean }) {
+  const { setSelectedSymbol, setActiveView } = useStore();
   return (
     <div className="bg-terminal-card border border-terminal-border rounded-xl p-4">
       <div className="flex items-center gap-2 mb-3">
@@ -518,7 +524,7 @@ function CommoditiesPanel({ quotes, loading }: { quotes: Record<string, QuoteSna
           const pct = q?.changePercent ?? 0;
           const up = pct >= 0;
           return (
-            <div key={symbol} className={`flex items-center gap-2 px-2.5 py-2 rounded-lg bg-terminal-bg border ${up ? 'border-terminal-green/15' : 'border-terminal-red/15'}`}>
+            <div key={symbol} onClick={() => { setSelectedSymbol(symbol); setActiveView('ai-analysis'); }} className={`flex items-center gap-2 px-2.5 py-2 rounded-lg bg-terminal-bg border cursor-pointer hover:opacity-90 transition-opacity ${up ? 'border-terminal-green/15' : 'border-terminal-red/15'}`}>
               <span className="text-base">{icon}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-bold text-terminal-text-primary leading-none">{name}</p>
@@ -545,7 +551,7 @@ function CommoditiesPanel({ quotes, loading }: { quotes: Record<string, QuoteSna
           const pct = q?.changePercent ?? 0;
           const up = pct >= 0;
           return (
-            <div key={symbol} className={`flex items-center gap-2 px-2.5 py-2 rounded-lg bg-terminal-bg border ${up ? 'border-terminal-green/15' : 'border-terminal-red/15'}`}>
+            <div key={symbol} onClick={() => { setSelectedSymbol(symbol); setActiveView('ai-analysis'); }} className={`flex items-center gap-2 px-2.5 py-2 rounded-lg bg-terminal-bg border cursor-pointer hover:opacity-90 transition-opacity ${up ? 'border-terminal-green/15' : 'border-terminal-red/15'}`}>
               <span className="text-[10px] font-bold text-terminal-cyan w-7">{label}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-bold text-terminal-text-primary leading-none">{name}</p>
@@ -573,7 +579,7 @@ function CommoditiesPanel({ quotes, loading }: { quotes: Record<string, QuoteSna
           const pct = q?.changePercent ?? 0;
           const up = pct >= 0;
           return (
-            <div key={symbol} className={`flex items-center gap-2 px-2.5 py-2 rounded-lg bg-terminal-bg border ${up ? 'border-terminal-green/15' : 'border-terminal-red/15'}`}>
+            <div key={symbol} onClick={() => { setSelectedSymbol(symbol); setActiveView('ai-analysis'); }} className={`flex items-center gap-2 px-2.5 py-2 rounded-lg bg-terminal-bg border cursor-pointer hover:opacity-90 transition-opacity ${up ? 'border-terminal-green/15' : 'border-terminal-red/15'}`}>
               <span className="text-[10px] font-bold text-terminal-yellow w-7">{label}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-bold text-terminal-text-primary">{name}</p>
@@ -797,6 +803,112 @@ function RecentAlerts() {
   );
 }
 
+// ── Section: Gainers & Losers strip ───────────────────────────────────────
+
+function GainersLosersStrip({ quotes }: { quotes: Record<string, QuoteSnap> }) {
+  const { setSelectedSymbol, setActiveView } = useStore();
+  const all = Object.values(quotes).filter(q => q.changePercent !== undefined);
+  const sorted = [...all].sort((a, b) => b.changePercent - a.changePercent);
+  const top3 = sorted.slice(0, 3);
+  const bottom3 = sorted.slice(-3).reverse();
+
+  if (all.length === 0) return null;
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-[10px] text-terminal-text-secondary uppercase tracking-widest font-bold shrink-0">Movers:</span>
+      {top3.map(q => (
+        <button key={q.symbol + '-g'} onClick={() => { setSelectedSymbol(q.symbol); setActiveView('ai-analysis'); }}
+          className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-terminal-green/10 text-terminal-green text-[11px] font-semibold hover:bg-terminal-green/20 transition-colors">
+          +{q.changePercent.toFixed(1)}% {q.symbol}
+        </button>
+      ))}
+      {bottom3.map(q => (
+        <button key={q.symbol + '-l'} onClick={() => { setSelectedSymbol(q.symbol); setActiveView('ai-analysis'); }}
+          className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-terminal-red/10 text-terminal-red text-[11px] font-semibold hover:bg-terminal-red/20 transition-colors">
+          {q.changePercent.toFixed(1)}% {q.symbol}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Section: Market Clock ─────────────────────────────────────────────────
+
+function MarketClock() {
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: false });
+  const etDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const dayOfWeek = etDate.getDay(); // 0=Sun, 6=Sat
+  const h = etDate.getHours();
+  const m = etDate.getMinutes();
+  const totalMin = h * 60 + m;
+  const OPEN = 9 * 60 + 30;
+  const CLOSE = 16 * 60;
+
+  let label = '';
+  let countdown = '';
+  let color = 'text-terminal-green';
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const fmtCountdown = (diffMs: number) => {
+    const diffSec = Math.max(0, Math.floor(diffMs / 1000));
+    const hh = Math.floor(diffSec / 3600);
+    const mm = Math.floor((diffSec % 3600) / 60);
+    const ss = diffSec % 60;
+    return hh > 0 ? `${hh}h ${pad(mm)}m ${pad(ss)}s` : `${mm}m ${pad(ss)}s`;
+  };
+
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    const daysToMonday = dayOfWeek === 6 ? 2 : 1;
+    const nextMonday = new Date(etDate);
+    nextMonday.setDate(nextMonday.getDate() + daysToMonday);
+    nextMonday.setHours(9, 30, 0, 0);
+    const diff = nextMonday.getTime() - etDate.getTime();
+    label = 'Market opens Monday in';
+    countdown = fmtCountdown(diff);
+    color = 'text-terminal-red';
+  } else if (totalMin < OPEN) {
+    const nextOpen = new Date(etDate);
+    nextOpen.setHours(9, 30, 0, 0);
+    const diff = nextOpen.getTime() - etDate.getTime();
+    label = 'Market opens in';
+    countdown = fmtCountdown(diff);
+    color = 'text-terminal-yellow';
+  } else if (totalMin >= OPEN && totalMin < CLOSE) {
+    const nextClose = new Date(etDate);
+    nextClose.setHours(16, 0, 0, 0);
+    const diff = nextClose.getTime() - etDate.getTime();
+    label = 'Market closes in';
+    countdown = fmtCountdown(diff);
+    color = 'text-terminal-green';
+  } else {
+    const tomorrow = new Date(etDate);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 30, 0, 0);
+    // Skip weekend
+    if (tomorrow.getDay() === 6) tomorrow.setDate(tomorrow.getDate() + 2);
+    if (tomorrow.getDay() === 0) tomorrow.setDate(tomorrow.getDate() + 1);
+    const diff = tomorrow.getTime() - etDate.getTime();
+    label = 'Market opens tomorrow in';
+    countdown = fmtCountdown(diff);
+    color = 'text-terminal-yellow';
+  }
+
+  return (
+    <div className="flex flex-col items-end shrink-0">
+      <span className="text-[10px] text-terminal-text-secondary">{label}</span>
+      <span className={`text-sm font-bold tabular-nums font-mono ${color}`}>{countdown}</span>
+    </div>
+  );
+}
+
 // ── All symbols for batch fetch ────────────────────────────────────────────
 
 const ALL_SYMBOLS = [
@@ -816,17 +928,23 @@ export default function Dashboard() {
   return (
     <div className="space-y-4 max-w-7xl pb-6">
 
-      {/* Live data freshness indicator */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-[10px] font-semibold text-terminal-text-secondary uppercase tracking-wider">
-          US Markets
-        </h2>
-        <div className="flex items-center gap-1.5 text-[10px] text-terminal-text-secondary/60">
-          <div className={`w-1.5 h-1.5 rounded-full ${loading ? 'bg-terminal-yellow animate-pulse' : 'bg-terminal-green'}`}/>
-          {lastUpdate ? `Live · Updated ${timeAgo(lastUpdate)}` : 'Loading live data…'}
-          <span className="text-terminal-text-secondary/40">· auto-refreshes 60s</span>
+      {/* Live data freshness indicator + Market Clock */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-[10px] font-semibold text-terminal-text-secondary uppercase tracking-wider">
+            US Markets
+          </h2>
+          <div className="flex items-center gap-1.5 text-[10px] text-terminal-text-secondary/60">
+            <div className={`w-1.5 h-1.5 rounded-full ${loading ? 'bg-terminal-yellow animate-pulse' : 'bg-terminal-green'}`}/>
+            {lastUpdate ? `Live · Updated ${timeAgo(lastUpdate)}` : 'Loading live data…'}
+            <span className="text-terminal-text-secondary/40">· auto-refreshes 60s</span>
+          </div>
         </div>
+        <MarketClock />
       </div>
+
+      {/* Gainers & Losers strip */}
+      {!loading && <GainersLosersStrip quotes={quotes} />}
 
       {/* Market Pulse — instant UP/DOWN signal */}
       <MarketPulse quotes={quotes} loading={loading} />
