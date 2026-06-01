@@ -16,6 +16,13 @@ import NewsFeed from './components/News/NewsFeed';
 import EarningsCalendar from './components/Earnings/EarningsCalendar';
 import EconomicCalendar from './components/Calendar/EconomicCalendar';
 import MarketHeatmap from './components/Heatmap/MarketHeatmap';
+import ChartPatternScanner from './components/PatternScanner/ChartPatternScanner';
+import RiskCalculator from './components/RiskCalc/RiskCalculator';
+import MultiTimeframeAnalysis from './components/MultiTF/MultiTimeframeAnalysis';
+import CryptoDashboard from './components/Crypto/CryptoDashboard';
+import PaperTrading from './components/PaperTrade/PaperTrading';
+import MarketScreener from './components/Screener/MarketScreener';
+import OptionsChain from './components/Options/OptionsChain';
 import type { ScanResult, Alert, WatchlistItem, NotificationSettings as NS } from './types';
 
 function LoadingScreen() {
@@ -160,8 +167,15 @@ export default function App() {
       case 'news':         return <NewsFeed />;
       case 'earnings':     return <EarningsCalendar />;
       case 'calendar':     return <EconomicCalendar />;
-      case 'heatmap':      return <MarketHeatmap />;
-      default:             return <Dashboard />;
+      case 'heatmap':          return <MarketHeatmap />;
+      case 'pattern-scanner':  return <ChartPatternScanner />;
+      case 'risk-calc':        return <RiskCalculator />;
+      case 'multi-tf':         return <MultiTimeframeAnalysis />;
+      case 'crypto':           return <CryptoDashboard />;
+      case 'paper-trade':      return <PaperTrading />;
+      case 'screener':         return <MarketScreener />;
+      case 'options':          return <OptionsChain />;
+      default:                 return <Dashboard />;
     }
   };
 

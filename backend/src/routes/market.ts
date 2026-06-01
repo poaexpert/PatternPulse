@@ -1,9 +1,14 @@
 import { Router, Request, Response } from 'express';
 import axios from 'axios';
+import multer from 'multer';
 import { fetchBatchQuotes, fetchHistoricalData, fetchIntradayBars, fetchMarketOverview, fetchNews, type NewsItem } from '../data/market';
+import { analyzeChartImage } from '../analysis/patternScanner';
+import { analyzeSymbolWithTA } from '../analysis/technicalAnalysis';
 import { store } from '../store';
 import * as indicators from '../indicators';
 import { logError } from '../utils/logger';
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const router = Router();
 
@@ -399,6 +404,188 @@ router.get('/economic', async (_req: Request, res: Response) => {
   events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   return res.json({ success: true, events });
+});
+
+/**
+ * POST /api/market/pattern-scan
+ * Analyze an uploaded chart screenshot for patterns.
+ */
+router.post('/pattern-scan', upload.single('image'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No image file provided' });
+    }
+    const symbol = (req.body.symbol as string | undefined)?.trim().toUpperCase();
+    let currentPrice: number | undefined;
+
+    if (symbol) {
+      try {
+        const quotes = await fetchBatchQuotes([symbol]);
+        if (quotes.length > 0 && quotes[0].price > 0) currentPrice = quotes[0].price;
+      } catch { /* ignore */ }
+    }
+
+    const analysis = await analyzeChartImage(req.file.buffer, symbol, currentPrice);
+    return res.json({ success: true, analysis });
+  } catch (err) {
+    logError('Pattern scan failed', err);
+    return res.status(500).json({ success: false, message: 'Pattern analysis failed' });
+  }
+});
+
+/**
+ * GET /api/market/options/:symbol
+ * Fetch options chain from Yahoo Finance v7.
+ */
+router.get('/options/:symbol', async (req: Request, res: Response) => {
+  const { symbol } = req.params;
+  const expiration = req.query.expiration as string | undefined;
+
+  try {
+    const url = expiration
+      ? `https://query1.finance.yahoo.com/v7/finance/options/${encodeURIComponent(symbol)}?date=${expiration}`
+      : `https://query1.finance.yahoo.com/v7/finance/options/${encodeURIComponent(symbol)}`;
+
+    const response = await axios.get(url, {
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; PatternPulse/1.0)',
+        'Accept': 'application/json',
+      },
+    });
+
+    const result = response.data?.optionChain?.result?.[0];
+    if (!result) {
+      return res.status(404).json({ success: false, message: 'No options data found for symbol' });
+    }
+
+    const quote = result.quote ?? {};
+    const currentPrice = quote.regularMarketPrice ?? 0;
+    const expirationDates: number[] = result.expirationDates ?? [];
+    const optionsData = result.options ?? [];
+
+    const calls = optionsData[0]?.calls ?? [];
+    const puts = optionsData[0]?.puts ?? [];
+
+    // Calculate total OI and max pain
+    const allStrikes = new Map<number, { callOI: number; putOI: number }>();
+    [...calls, ...puts].forEach((opt: Record<string, unknown>) => {
+      const strike = (opt.strike as number) ?? 0;
+      if (!allStrikes.has(strike)) allStrikes.set(strike, { callOI: 0, putOI: 0 });
+      const entry = allStrikes.get(strike)!;
+      if (calls.includes(opt)) entry.callOI += (opt.openInterest as number) ?? 0;
+      else entry.putOI += (opt.openInterest as number) ?? 0;
+    });
+
+    let maxPainStrike = currentPrice;
+    let minPain = Infinity;
+    allStrikes.forEach((oi, strike) => {
+      let pain = 0;
+      allStrikes.forEach((o2, s2) => {
+        pain += o2.callOI * Math.max(0, strike - s2) + o2.putOI * Math.max(0, s2 - strike);
+      });
+      if (pain < minPain) { minPain = pain; maxPainStrike = strike; }
+    });
+
+    const totalCallOI = calls.reduce((s: number, c: Record<string, unknown>) => s + ((c.openInterest as number) ?? 0), 0);
+    const totalPutOI = puts.reduce((s: number, p: Record<string, unknown>) => s + ((p.openInterest as number) ?? 0), 0);
+
+    return res.json({
+      success: true,
+      symbol: symbol.toUpperCase(),
+      currentPrice,
+      expirationDates,
+      calls,
+      puts,
+      maxPain: Math.round(maxPainStrike * 100) / 100,
+      totalCallOI,
+      totalPutOI,
+      putCallRatio: totalCallOI > 0 ? Math.round((totalPutOI / totalCallOI) * 100) / 100 : null,
+    });
+  } catch (err) {
+    logError(`Options fetch failed for ${symbol}`, err);
+    return res.status(500).json({ success: false, message: 'Failed to fetch options data' });
+  }
+});
+
+/**
+ * GET /api/market/multi-tf/:symbol
+ * Returns analysis for 4 timeframes simultaneously.
+ */
+router.get('/multi-tf/:symbol', async (req: Request, res: Response) => {
+  const { symbol } = req.params;
+  const sym = symbol.toUpperCase();
+
+  try {
+    const [bars15m, bars1h, bars4h, bars1d] = await Promise.allSettled([
+      fetchIntradayBars(sym, '15m').catch(() => fetchHistoricalData(sym, '1mo')),
+      fetchIntradayBars(sym, 'h').catch(() => fetchHistoricalData(sym, '3mo')),
+      fetchIntradayBars(sym, '4h').catch(() => fetchHistoricalData(sym, '3mo')),
+      fetchHistoricalData(sym, '6mo'),
+    ]);
+
+    const analyzeOrNull = async (barsResult: PromiseSettledResult<unknown[]>, label: string) => {
+      if (barsResult.status !== 'fulfilled' || barsResult.value.length < 20) {
+        return { timeframe: label, error: 'Insufficient data', signal: 'HOLD' as const };
+      }
+      try {
+        const bars = barsResult.value as import('../data/market').OHLCVBar[];
+        const analysis = await analyzeSymbolWithTA(sym, bars.slice(-50));
+        const closes = bars.map(b => b.close);
+        const rsiArr = indicators.calculateRSI(closes, 14);
+        const rsi = rsiArr.length > 0 ? rsiArr[rsiArr.length - 1] : 50;
+        const atrArr = indicators.calculateATR(bars.map(b=>b.high), bars.map(b=>b.low), closes, 14);
+        const atr = atrArr.length > 0 ? atrArr[atrArr.length - 1] : 0;
+
+        let signal: 'BUY' | 'SELL' | 'HOLD' = 'HOLD';
+        if (analysis.swingSetup.exists && analysis.swingSetup.direction === 'LONG') signal = 'BUY';
+        else if (analysis.swingSetup.exists && analysis.swingSetup.direction === 'SHORT') signal = 'SELL';
+        else if (analysis.trend.direction === 'UP' && rsi < 70) signal = 'BUY';
+        else if (analysis.trend.direction === 'DOWN' && rsi > 30) signal = 'SELL';
+
+        const lastClose = closes[closes.length - 1];
+        const support = analysis.keyLevels.support[0] ?? (lastClose - atr * 2);
+        const resistance = analysis.keyLevels.resistance[0] ?? (lastClose + atr * 2);
+
+        return {
+          timeframe: label,
+          trend: analysis.trend.direction,
+          signal,
+          rsi: Math.round(rsi * 10) / 10,
+          support: Math.round(support * 100) / 100,
+          resistance: Math.round(resistance * 100) / 100,
+          strength: analysis.signalStrength,
+          summary: analysis.indicators.summary,
+          sparkline: closes.slice(-20),
+        };
+      } catch {
+        return { timeframe: label, error: 'Analysis failed', signal: 'HOLD' as const };
+      }
+    };
+
+    const [tf15m, tf1h, tf4h, tf1d] = await Promise.all([
+      analyzeOrNull(bars15m, '15m'),
+      analyzeOrNull(bars1h, '1h'),
+      analyzeOrNull(bars4h, '4h'),
+      analyzeOrNull(bars1d, '1d'),
+    ]);
+
+    const timeframes = [tf15m, tf1h, tf4h, tf1d];
+    const buyCount = timeframes.filter(t => t.signal === 'BUY').length;
+    const sellCount = timeframes.filter(t => t.signal === 'SELL').length;
+
+    let overallBias = 'Mixed Signals';
+    if (buyCount === 4) overallBias = '4/4 BULLISH — Strong Long';
+    else if (buyCount === 3) overallBias = '3/4 BULLISH — Lean Long';
+    else if (sellCount === 4) overallBias = '4/4 BEARISH — Strong Short';
+    else if (sellCount === 3) overallBias = '3/4 BEARISH — Lean Short';
+    else if (buyCount === sellCount) overallBias = '2/2 Split — Mixed Signals — Wait';
+
+    return res.json({ success: true, symbol: sym, timeframes, overallBias, buyCount, sellCount });
+  } catch (err) {
+    logError(`Multi-TF analysis failed for ${symbol}`, err);
+    return res.status(500).json({ success: false, message: 'Multi-timeframe analysis failed' });
+  }
 });
 
 export default router;

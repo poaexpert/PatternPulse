@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { useStore } from '../../store';
 
 interface QuoteSnap {
   symbol: string;
@@ -56,6 +57,7 @@ export default function MarketHeatmap() {
   const [quotes, setQuotes] = useState<Record<string, QuoteSnap>>({});
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const { setSelectedSymbol, setActiveView } = useStore();
 
   const fetchQuotes = useCallback(async () => {
     try {
@@ -102,9 +104,12 @@ export default function MarketHeatmap() {
 
       {/* S&P 500 Sector Heatmap */}
       <div className="bg-terminal-card border border-terminal-border rounded-xl p-4">
-        <h3 className="text-xs font-semibold text-terminal-text-secondary uppercase tracking-widest mb-3">
-          S&P 500 Sectors — tile size = market cap weight
-        </h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-terminal-text-secondary uppercase tracking-widest">
+            S&P 500 Sectors — tile size = market cap weight
+          </h3>
+          <span className="text-[10px] text-terminal-text-secondary/60 italic">Click any tile to analyze</span>
+        </div>
 
         {/* Proportional grid using flex wrap + flex-grow */}
         <div className="flex flex-wrap gap-1.5">
@@ -120,9 +125,10 @@ export default function MarketHeatmap() {
             return (
               <div
                 key={symbol}
-                className="rounded-xl border border-white/5 flex flex-col items-center justify-center p-2 cursor-default hover:scale-105 transition-transform"
+                onClick={() => { setSelectedSymbol(symbol); setActiveView('ai-analysis'); }}
+                className="rounded-xl border border-white/5 flex flex-col items-center justify-center p-2 cursor-pointer hover:scale-105 transition-transform"
                 style={{ background: bg, color: tc, minWidth: minW, minHeight: minH, flexGrow: weight }}
-                title={`${name} (${symbol}) — ${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`}
+                title={`${name} (${symbol}) — ${pct >= 0 ? '+' : ''}${pct.toFixed(2)}% — Click to analyze`}
               >
                 <div className="font-black text-sm tracking-tight">{symbol}</div>
                 <div className="font-bold text-xs mt-0.5">
@@ -166,7 +172,8 @@ export default function MarketHeatmap() {
             return (
               <div
                 key={symbol}
-                className="rounded-xl border border-white/5 flex flex-col items-center justify-center p-3 gap-1 text-center"
+                onClick={() => { setSelectedSymbol(symbol); setActiveView('ai-analysis'); }}
+                className="rounded-xl border border-white/5 flex flex-col items-center justify-center p-3 gap-1 text-center cursor-pointer hover:scale-105 transition-transform"
                 style={{ background: bg, color: tc, minHeight: '80px' }}
               >
                 <span className="text-xl">{icon}</span>
@@ -192,7 +199,7 @@ export default function MarketHeatmap() {
             const up = pct >= 0;
             const barW = Math.min(100, Math.abs(pct) * 20);
             return (
-              <div key={symbol} className="px-4 py-2.5 flex items-center gap-3">
+              <div key={symbol} onClick={() => { setSelectedSymbol(symbol); setActiveView('ai-analysis'); }} className="px-4 py-2.5 flex items-center gap-3 cursor-pointer hover:bg-terminal-border/20 transition-colors">
                 <span className="text-xs font-bold text-terminal-text-primary w-12 shrink-0 font-mono">{symbol}</span>
                 <span className="text-xs text-terminal-text-secondary flex-1 hidden sm:block">{name}</span>
                 {/* Bar */}

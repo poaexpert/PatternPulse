@@ -851,6 +851,88 @@ export default function AnalysisResults({ analysis, timeframe = '1d' }: Analysis
         <SignalStrengthBar strength={signalStrength} />
       </Card>
 
+      {/* Pivot Points (derived from key levels) */}
+      {currentPrice && sortedResistance.length > 0 && sortedSupport.length > 0 && (() => {
+        const H = sortedResistance[0] ?? currentPrice * 1.02;
+        const L = sortedSupport[0] ?? currentPrice * 0.98;
+        const C = currentPrice;
+        const PP = (H + L + C) / 3;
+        const R1 = 2 * PP - L;
+        const R2 = PP + (H - L);
+        const R3 = H + 2 * (PP - L);
+        const S1 = 2 * PP - H;
+        const S2 = PP - (H - L);
+        const S3 = L - 2 * (H - PP);
+        const rows = [
+          { label: 'R3', value: R3, color: 'text-terminal-red' },
+          { label: 'R2', value: R2, color: 'text-terminal-red' },
+          { label: 'R1', value: R1, color: 'text-terminal-red' },
+          { label: 'PP', value: PP, color: 'text-terminal-yellow' },
+          { label: 'S1', value: S1, color: 'text-terminal-green' },
+          { label: 'S2', value: S2, color: 'text-terminal-green' },
+          { label: 'S3', value: S3, color: 'text-terminal-green' },
+        ];
+        return (
+          <Card title="Classic Pivot Points">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-terminal-border">
+                  <th className="pb-1.5 text-left text-terminal-text-secondary font-semibold">Level</th>
+                  <th className="pb-1.5 text-right text-terminal-text-secondary font-semibold">Price</th>
+                  <th className="pb-1.5 text-right text-terminal-text-secondary font-semibold">Dist %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(({ label, value, color }) => {
+                  const dist = ((value - C) / C) * 100;
+                  const isActive = Math.abs(dist) < 1;
+                  return (
+                    <tr key={label} className={`border-b border-terminal-border/30 ${isActive ? 'bg-terminal-yellow/5' : ''}`}>
+                      <td className={`py-1.5 font-bold ${color}`}>{label}{isActive ? ' ←' : ''}</td>
+                      <td className={`py-1.5 text-right tabular-nums font-mono ${color}`}>{formatPrice(value)}</td>
+                      <td className={`py-1.5 text-right tabular-nums ${dist >= 0 ? 'text-terminal-red' : 'text-terminal-green'}`}>
+                        {dist >= 0 ? '+' : ''}{dist.toFixed(2)}%
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </Card>
+        );
+      })()}
+
+      {/* Volatility section */}
+      {currentPrice && (() => {
+        const H = sortedResistance[0] ?? currentPrice * 1.015;
+        const L = sortedSupport[0] ?? currentPrice * 0.985;
+        const atrApprox = (H - L) * 0.5; // approximate ATR from high-low range
+        const atrPct = (atrApprox / currentPrice) * 100;
+        const hvApprox = atrPct * Math.sqrt(252) * 0.6; // rough annualized vol estimate
+        const dailyMove = currentPrice * (hvApprox / 100) / Math.sqrt(252);
+        return (
+          <Card title="Volatility">
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <p className="text-[10px] text-terminal-text-secondary uppercase tracking-widest mb-1">ATR (est.)</p>
+                <p className="text-sm font-bold tabular-nums text-terminal-text-primary">{formatPrice(atrApprox)}</p>
+                <p className="text-[10px] text-terminal-text-secondary">{atrPct.toFixed(1)}% of price</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-terminal-text-secondary uppercase tracking-widest mb-1">Ann. Vol (est.)</p>
+                <p className="text-sm font-bold tabular-nums text-terminal-text-primary">{hvApprox.toFixed(0)}%</p>
+                <p className="text-[10px] text-terminal-text-secondary">Historical (approx)</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-terminal-text-secondary uppercase tracking-widest mb-1">Expected Daily</p>
+                <p className="text-sm font-bold tabular-nums text-terminal-text-primary">±{formatPrice(dailyMove)}</p>
+                <p className="text-[10px] text-terminal-text-secondary">1σ daily range</p>
+              </div>
+            </div>
+          </Card>
+        );
+      })()}
+
       {/* 8. Warnings */}
       {warnings.length > 0 && (
         <div className="flex flex-wrap gap-2">

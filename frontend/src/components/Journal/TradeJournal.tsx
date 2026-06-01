@@ -330,8 +330,16 @@ function Stats({ entries }: { entries: JournalEntry[] }) {
   const losses = closed.filter((e) => (calcPnl(e)?.pnl ?? 0) <= 0);
   const totalPnl = closed.reduce((a, e) => a + (calcPnl(e)?.pnl ?? 0), 0);
   const winRate = closed.length > 0 ? Math.round((wins.length / closed.length) * 100) : 0;
+  const avgWinDollar = wins.length > 0 ? wins.reduce((a, e) => a + (calcPnl(e)?.pnl ?? 0), 0) / wins.length : 0;
+  const avgLossDollar = losses.length > 0 ? Math.abs(losses.reduce((a, e) => a + (calcPnl(e)?.pnl ?? 0), 0) / losses.length) : 0;
   const avgWin = wins.length > 0 ? wins.reduce((a, e) => a + (calcPnl(e)?.pct ?? 0), 0) / wins.length : 0;
   const avgLoss = losses.length > 0 ? losses.reduce((a, e) => a + (calcPnl(e)?.pct ?? 0), 0) / losses.length : 0;
+  const grossWin = wins.reduce((a, e) => a + (calcPnl(e)?.pnl ?? 0), 0);
+  const grossLoss = Math.abs(losses.reduce((a, e) => a + (calcPnl(e)?.pnl ?? 0), 0));
+  const profitFactor = grossLoss > 0 ? grossWin / grossLoss : wins.length > 0 ? Infinity : 0;
+  const allPnls = closed.map(e => calcPnl(e)?.pnl ?? 0);
+  const bestTrade = allPnls.length > 0 ? Math.max(...allPnls) : 0;
+  const worstTrade = allPnls.length > 0 ? Math.min(...allPnls) : 0;
 
   const stat = (label: string, value: string, color: string, sub?: string) => (
     <div className="bg-terminal-bg border border-terminal-border rounded-lg px-3 py-3 text-center">
@@ -342,13 +350,21 @@ function Stats({ entries }: { entries: JournalEntry[] }) {
   );
 
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-      {stat('Open', String(open.length), 'text-terminal-cyan')}
-      {stat('Closed', String(closed.length), 'text-terminal-text-primary')}
-      {stat('Win Rate', `${winRate}%`, winRate >= 55 ? 'text-terminal-green' : winRate >= 40 ? 'text-terminal-yellow' : 'text-terminal-red', `${wins.length}W / ${losses.length}L`)}
-      {stat('Total P&L', `$${totalPnl.toFixed(0)}`, totalPnl >= 0 ? 'text-terminal-green' : 'text-terminal-red')}
-      {stat('Avg Win', `${avgWin.toFixed(1)}%`, 'text-terminal-green')}
-      {stat('Avg Loss', `${avgLoss.toFixed(1)}%`, 'text-terminal-red')}
+    <div className="space-y-2">
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+        {stat('Total Trades', String(closed.length + open.length), 'text-terminal-cyan', `${open.length} open`)}
+        {stat('Win Rate', `${winRate}%`, winRate >= 55 ? 'text-terminal-green' : winRate >= 40 ? 'text-terminal-yellow' : 'text-terminal-red', `${wins.length}W / ${losses.length}L`)}
+        {stat('Avg Win $', `$${avgWinDollar.toFixed(0)}`, 'text-terminal-green', `${avgWin.toFixed(1)}%`)}
+        {stat('Avg Loss $', `$${avgLossDollar.toFixed(0)}`, 'text-terminal-red', `${avgLoss.toFixed(1)}%`)}
+        {stat('Profit Factor', isFinite(profitFactor) ? profitFactor.toFixed(2) : '∞', profitFactor >= 1.5 ? 'text-terminal-green' : profitFactor >= 1 ? 'text-terminal-yellow' : 'text-terminal-red')}
+        {stat('Total P&L', `$${totalPnl.toFixed(0)}`, totalPnl >= 0 ? 'text-terminal-green' : 'text-terminal-red')}
+      </div>
+      {allPnls.length > 0 && (
+        <div className="grid grid-cols-2 gap-2">
+          {stat('Best Trade', `$${bestTrade.toFixed(0)}`, 'text-terminal-green')}
+          {stat('Worst Trade', `$${worstTrade.toFixed(0)}`, 'text-terminal-red')}
+        </div>
+      )}
     </div>
   );
 }
