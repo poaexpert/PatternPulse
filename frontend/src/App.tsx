@@ -60,6 +60,7 @@ export default function App() {
 
   const {
     activeView,
+    setActiveView,
     setScanResults,
     setAlerts,
     setWatchlist,
@@ -70,6 +71,16 @@ export default function App() {
   } = useStore();
 
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Handle Stripe redirect back from checkout
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment')) {
+      setActiveView('pricing');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {

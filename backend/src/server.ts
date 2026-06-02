@@ -26,6 +26,7 @@ import marketRouter from './routes/market';
 import analysisRouter from './routes/analysis';
 import journalRouter from './routes/journal';
 import adminRouter from './routes/admin';
+import stripeRouter, { stripeWebhookHandler } from './routes/stripe';
 
 const app = express();
 const server = createServer(app);
@@ -47,6 +48,10 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
+
+// Stripe webhook needs raw body BEFORE express.json() parses it
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), stripeWebhookHandler);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -67,6 +72,7 @@ app.use('/api/market', marketRouter);
 app.use('/api/analysis', analysisRouter);
 app.use('/api/journal', journalRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/stripe', stripeRouter);
 app.use('/api', marketRouter); // exposes /api/stock/:symbol/* routes
 
 // ── Bot proxy (/bot/* → ChartSpyder Python service on port 8081) ──────────────

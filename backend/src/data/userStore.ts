@@ -18,6 +18,9 @@ export interface User {
   createdAt: string;
   lastSeen?: string;
   notes?: string;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  stripeStatus?: string; // active | canceled | past_due | trialing
 }
 
 export interface SiteSettings {

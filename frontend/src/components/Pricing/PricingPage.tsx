@@ -181,11 +181,34 @@ function SubscribeModal({
 }
 
 export default function PricingPage() {
-  const { userTier, setUserTier, setUserEmail } = useStore();
+  const { userTier, setUserTier, setUserEmail, userEmail } = useStore();
   const [modalTier, setModalTier] = useState<TierCard | null>(null);
   const [lookupEmail, setLookupEmail] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupMsg, setLookupMsg] = useState('');
+  const [stripeLoading, setStripeLoading] = useState<string | null>(null);
+  const [stripeError, setStripeError] = useState('');
+
+  const handleStripeCheckout = async (tier: 'pro' | 'elite') => {
+    setStripeLoading(tier);
+    setStripeError('');
+    try {
+      const res = await axios.post('/api/stripe/create-checkout-session', {
+        tier,
+        email: userEmail ?? undefined,
+      });
+      if (res.data?.url) {
+        window.location.href = res.data.url;
+      } else {
+        setStripeError(res.data?.message ?? 'Failed to start checkout');
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setStripeError(msg ?? 'Stripe not configured yet. Use manual request below.');
+    } finally {
+      setStripeLoading(null);
+    }
+  };
 
   const handleLookup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -270,36 +293,56 @@ export default function PricingPage() {
                   disabled
                   className="w-full py-2.5 rounded-lg text-sm font-semibold bg-terminal-border/40 text-terminal-text-secondary cursor-not-allowed"
                 >
-                  {isCurrentTier ? 'Already Active' : 'Get Started'}
+                  {isCurrentTier ? 'Already Active' : 'Get Started Free'}
                 </button>
               ) : (
-                <button
-                  onClick={() => setModalTier(tier)}
-                  className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-                    isCurrentTier
-                      ? 'bg-terminal-border/40 text-terminal-text-secondary cursor-not-allowed'
-                      : tier.tier === 'elite'
-                      ? 'bg-terminal-purple text-white hover:bg-terminal-purple/90'
-                      : 'bg-terminal-green text-black hover:bg-terminal-green/90'
-                  }`}
-                  disabled={isCurrentTier}
-                >
-                  {isCurrentTier ? 'Active Plan' : 'Subscribe'}
-                </button>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => handleStripeCheckout(tier.tier as 'pro' | 'elite')}
+                    disabled={isCurrentTier || stripeLoading === tier.tier}
+                    className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
+                      isCurrentTier
+                        ? 'bg-terminal-border/40 text-terminal-text-secondary cursor-not-allowed'
+                        : tier.tier === 'elite'
+                        ? 'bg-terminal-purple text-white hover:bg-terminal-purple/90'
+                        : 'bg-terminal-green text-black hover:bg-terminal-green/90'
+                    }`}
+                  >
+                    {stripeLoading === tier.tier ? (
+                      <><div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> Redirecting…</>
+                    ) : isCurrentTier ? 'Active Plan' : (
+                      <><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Pay by Card</>
+                    )}
+                  </button>
+                  {!isCurrentTier && (
+                    <button
+                      onClick={() => setModalTier(tier)}
+                      className="w-full py-2 rounded-lg text-xs font-medium text-terminal-text-secondary border border-terminal-border hover:border-terminal-cyan/30 hover:text-terminal-text-primary transition-colors"
+                    >
+                      Request manual access instead
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           );
         })}
       </div>
 
-      {/* Manual payment note */}
-      <div className="flex items-start gap-3 bg-terminal-yellow/5 border border-terminal-yellow/20 rounded-xl p-4 max-w-2xl mx-auto">
-        <svg className="w-4 h-4 text-terminal-yellow shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      {stripeError && (
+        <div className="max-w-2xl mx-auto bg-terminal-yellow/5 border border-terminal-yellow/20 rounded-xl px-4 py-3 text-sm text-terminal-yellow">
+          {stripeError}
+        </div>
+      )}
+
+      {/* Payment info */}
+      <div className="flex items-start gap-3 bg-terminal-cyan/5 border border-terminal-cyan/20 rounded-xl p-4 max-w-2xl mx-auto">
+        <svg className="w-4 h-4 text-terminal-cyan shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
         </svg>
-        <p className="text-sm text-terminal-yellow">
-          <span className="font-semibold">Manual billing: </span>
-          Payments are handled manually. After subscribing, you'll receive email confirmation and your account will be activated within 24 hours.
+        <p className="text-sm text-terminal-cyan">
+          <span className="font-semibold">Secure card payments via Stripe. </span>
+          Your tier activates instantly after payment. Cancel anytime from your account.
         </p>
       </div>
 
