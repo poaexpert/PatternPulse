@@ -133,10 +133,16 @@ function DollarIcon() {
   );
 }
 
-// Features gated behind PRO
-const PRO_GATED: string[] = ['ai-analysis', 'pattern-scanner', 'options', 'risk-calc', 'multi-tf', 'futures', 'journal', 'heatmap'];
-// Features gated behind ELITE
-const ELITE_GATED: string[] = ['crypto', 'paper-trade', 'screener'];
+// FREE: dashboard, settings, pricing only
+// PRO: scanner, alerts, watchlist, news, earnings, calendar, futures, journal, risk-calc, multi-tf, heatmap
+// ELITE: ai-analysis, pattern-scanner, options, crypto, paper-trade, screener
+const PRO_GATED: string[] = [
+  'scanner', 'alerts', 'watchlist', 'news', 'earnings', 'calendar',
+  'futures', 'journal', 'risk-calc', 'multi-tf', 'heatmap',
+];
+const ELITE_GATED: string[] = [
+  'ai-analysis', 'pattern-scanner', 'options', 'crypto', 'paper-trade', 'screener',
+];
 
 export default function Sidebar() {
   const { activeView, setActiveView, alerts, watchlist, marketStatus, userTier, isAdminLoggedIn } = useStore();
@@ -259,6 +265,9 @@ export default function Sidebar() {
       <nav className="flex-1 py-3 px-2">
         <ul className="space-y-0.5">
           {navItems.map((item) => {
+            const isProLocked   = PRO_GATED.includes(item.id)   && userTier === 'free';
+            const isEliteLocked = ELITE_GATED.includes(item.id) && userTier !== 'elite';
+            const isLocked = isProLocked || isEliteLocked;
             const isActive = activeView === item.id;
             const badge =
               item.id === 'alerts' && activeAlertCount > 0
@@ -270,10 +279,13 @@ export default function Sidebar() {
             return (
               <li key={item.id}>
                 <button
-                  onClick={() => setActiveView(item.id)}
+                  onClick={() => isLocked ? setActiveView('pricing') : setActiveView(item.id)}
+                  title={isProLocked ? 'PRO feature — click to upgrade' : isEliteLocked ? 'ELITE feature — click to upgrade' : item.label}
                   className={`
                     nav-item w-full flex items-center gap-3 px-2.5 lg:px-3 py-2.5 rounded-lg text-left group relative
-                    ${isActive
+                    ${isLocked
+                      ? 'text-terminal-text-secondary/40 border border-transparent cursor-pointer hover:bg-terminal-yellow/5 hover:text-terminal-yellow/60'
+                      : isActive
                       ? 'bg-terminal-cyan/10 text-terminal-cyan border border-terminal-cyan/20'
                       : 'text-terminal-text-secondary hover:bg-terminal-border/40 hover:text-terminal-text-primary border border-transparent'
                     }
@@ -281,11 +293,11 @@ export default function Sidebar() {
                 >
                   <span className="shrink-0">{item.icon}</span>
                   <span className="hidden lg:block text-sm font-medium flex-1 min-w-0 truncate">{item.label}</span>
-                  {PRO_GATED.includes(item.id) && userTier === 'free' && (
-                    <span className="hidden lg:block shrink-0 text-[11px]" title="PRO feature">🔒</span>
-                  )}
-                  {ELITE_GATED.includes(item.id) && userTier !== 'elite' && (
-                    <span className="hidden lg:block shrink-0 text-[11px]" title="ELITE feature">🔒</span>
+                  {isLocked && (
+                    <span className="hidden lg:flex shrink-0 items-center gap-0.5">
+                      <svg className="w-3 h-3 text-terminal-yellow/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      <span className="text-[9px] font-bold text-terminal-yellow/50">{isEliteLocked ? 'ELITE' : 'PRO'}</span>
+                    </span>
                   )}
                   {badge !== null && (
                     <span className={`

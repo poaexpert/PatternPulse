@@ -35,8 +35,8 @@ interface StoreData {
 
 const DEFAULT_SETTINGS: SiteSettings = {
   pricing: { pro: 29, elite: 79 },
-  proFeatures: ['ai-analysis', 'pattern-scanner', 'options', 'risk-calc', 'multi-tf', 'futures', 'journal', 'heatmap'],
-  eliteFeatures: ['crypto', 'paper-trade', 'screener'],
+  proFeatures: ['scanner', 'alerts', 'watchlist', 'news', 'earnings', 'calendar', 'futures', 'journal', 'risk-calc', 'multi-tf', 'heatmap'],
+  eliteFeatures: ['ai-analysis', 'pattern-scanner', 'options', 'crypto', 'paper-trade', 'screener'],
   maintenanceMode: false,
   welcomeMessage: '',
 };
