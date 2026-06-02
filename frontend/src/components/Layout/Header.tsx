@@ -15,7 +15,7 @@ const VIEW_META: Record<ActiveView, ViewMeta> = {
   alerts: { title: 'Alerts', subtitle: 'Price & scan alerts management' },
   watchlist: { title: 'Watchlist', subtitle: 'Tracked symbols & positions' },
   settings: { title: 'Settings', subtitle: 'Notifications & configuration' },
-  'ai-analysis': { title: 'Technical Analysis', subtitle: 'Free technical analysis via Yahoo Finance' },
+  'ai-analysis': { title: 'Technical Analysis', subtitle: 'Real-time technical analysis & trading signals' },
   futures: { title: 'Futures Markets', subtitle: 'Live futures quotes & monitoring' },
   journal:  { title: 'Trade Journal',      subtitle: 'Log entries, exits, and track performance' },
   news:     { title: 'Market News',        subtitle: 'Latest headlines from all markets' },
@@ -29,6 +29,9 @@ const VIEW_META: Record<ActiveView, ViewMeta> = {
   'paper-trade':     { title: 'Paper Trading',     subtitle: 'Virtual portfolio with $100k starting capital' },
   'screener':        { title: 'Market Screener',   subtitle: 'Filter stocks & ETFs by price, change, volume' },
   'options':         { title: 'Options Chain',     subtitle: 'Live options chains, OI, IV & max pain' },
+  'admin':           { title: 'Admin Panel',       subtitle: 'Site management & user control' },
+  'pricing':         { title: 'Plans & Pricing',   subtitle: 'Upgrade your access level' },
+  'analytics':       { title: 'Analytics',         subtitle: 'Detailed visitor & engagement tracking' },
 };
 
 function TickerTape() {

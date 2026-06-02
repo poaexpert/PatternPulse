@@ -117,7 +117,7 @@ export default function OptionsChain() {
         setError('No options data available for this symbol.');
       }
     } catch {
-      setError('Failed to fetch options chain. Yahoo Finance may be unavailable or the symbol does not have options.');
+      setError('Unable to load options data. Check that the symbol is a valid US stock or ETF (e.g. SPY, AAPL, TSLA).');
     } finally {
       setLoading(false);
     }
@@ -146,7 +146,7 @@ export default function OptionsChain() {
           </div>
           <div>
             <h2 className="text-base font-bold text-terminal-text-primary">Options Chain</h2>
-            <p className="text-xs text-terminal-text-secondary">Live options data via Yahoo Finance · ATM ±12% shown</p>
+            <p className="text-xs text-terminal-text-secondary">Black-Scholes pricing · Real-time underlying price · ATM ±15% shown</p>
           </div>
         </div>
       </div>

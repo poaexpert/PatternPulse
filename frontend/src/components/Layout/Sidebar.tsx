@@ -133,8 +133,13 @@ function DollarIcon() {
   );
 }
 
+// Features gated behind PRO
+const PRO_GATED: string[] = ['ai-analysis', 'pattern-scanner', 'options', 'risk-calc', 'multi-tf', 'futures', 'journal', 'heatmap'];
+// Features gated behind ELITE
+const ELITE_GATED: string[] = ['crypto', 'paper-trade', 'screener'];
+
 export default function Sidebar() {
-  const { activeView, setActiveView, alerts, watchlist, marketStatus } = useStore();
+  const { activeView, setActiveView, alerts, watchlist, marketStatus, userTier, isAdminLoggedIn } = useStore();
 
   const activeAlertCount = alerts.filter((a) => a.active).length;
   const watchlistCount = watchlist.length;
@@ -230,9 +235,20 @@ export default function Sidebar() {
               <path d="M6 12l3 3 3-6 3 4 2-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <div className="hidden lg:block min-w-0">
-            <div className="text-sm font-bold text-terminal-text-primary tracking-tight leading-none">
-              Pattern<span className="text-terminal-cyan">Pulse</span>
+          <div className="hidden lg:block min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <div className="text-sm font-bold text-terminal-text-primary tracking-tight leading-none">
+                Pattern<span className="text-terminal-cyan">Pulse</span>
+              </div>
+              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                userTier === 'elite'
+                  ? 'bg-terminal-purple/10 text-terminal-purple border border-terminal-purple/20'
+                  : userTier === 'pro'
+                  ? 'bg-terminal-green/10 text-terminal-green border border-terminal-green/20'
+                  : 'bg-terminal-border/40 text-terminal-text-secondary border border-terminal-border'
+              }`}>
+                {userTier.toUpperCase()}
+              </span>
             </div>
             <div className="text-xs text-terminal-text-secondary mt-0.5 truncate">Stock Scanner</div>
           </div>
@@ -265,6 +281,12 @@ export default function Sidebar() {
                 >
                   <span className="shrink-0">{item.icon}</span>
                   <span className="hidden lg:block text-sm font-medium flex-1 min-w-0 truncate">{item.label}</span>
+                  {PRO_GATED.includes(item.id) && userTier === 'free' && (
+                    <span className="hidden lg:block shrink-0 text-[11px]" title="PRO feature">🔒</span>
+                  )}
+                  {ELITE_GATED.includes(item.id) && userTier !== 'elite' && (
+                    <span className="hidden lg:block shrink-0 text-[11px]" title="ELITE feature">🔒</span>
+                  )}
                   {badge !== null && (
                     <span className={`
                       hidden lg:flex shrink-0 min-w-[18px] h-[18px] items-center justify-center rounded-full text-[10px] font-bold px-1
@@ -284,6 +306,49 @@ export default function Sidebar() {
           })}
         </ul>
       </nav>
+
+      {/* Upgrade button */}
+      {userTier === 'free' && (
+        <div className="px-2 pb-2">
+          <button
+            onClick={() => setActiveView('pricing')}
+            className={`
+              w-full flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-semibold transition-all
+              bg-terminal-cyan/10 text-terminal-cyan border border-terminal-cyan/20 hover:bg-terminal-cyan/20
+            `}
+          >
+            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="17 11 21 7 17 3"/><line x1="21" y1="7" x2="9" y2="7"/>
+              <path d="M3 21v-4a4 4 0 0 1 4-4h14"/>
+            </svg>
+            <span className="hidden lg:block">UPGRADE</span>
+          </button>
+        </div>
+      )}
+
+      {/* Admin nav item */}
+      {isAdminLoggedIn && (
+        <div className="px-2 pb-1">
+          <button
+            onClick={() => setActiveView('admin')}
+            className={`
+              w-full flex items-center gap-3 px-2.5 lg:px-3 py-2 rounded-lg text-left group relative
+              ${activeView === 'admin'
+                ? 'bg-terminal-cyan/10 text-terminal-cyan border border-terminal-cyan/20'
+                : 'text-terminal-text-secondary hover:bg-terminal-border/40 hover:text-terminal-text-primary border border-transparent'
+              }
+            `}
+          >
+            <span className="shrink-0">
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+            </span>
+            <span className="hidden lg:block text-sm font-medium flex-1 min-w-0 truncate">Admin</span>
+            <span className="lg:hidden absolute left-full ml-2 bg-terminal-card border border-terminal-border text-terminal-text-primary text-xs py-1 px-2 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">Admin</span>
+          </button>
+        </div>
+      )}
 
       {/* Market Status */}
       <div className="px-2 py-3 border-t border-terminal-border">

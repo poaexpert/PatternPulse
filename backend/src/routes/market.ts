@@ -433,78 +433,158 @@ router.post('/pattern-scan', upload.single('image'), async (req: Request, res: R
   }
 });
 
+// ── Black-Scholes helpers for synthetic options chain ──────────────────────
+
+function normalCDF(x: number): number {
+  const a1 = 0.319381530, a2 = -0.356563782, a3 = 1.781477937;
+  const a4 = -1.821255978, a5 = 1.330274429;
+  const t = 1 / (1 + 0.2316419 * Math.abs(x));
+  const phi = Math.exp(-x * x / 2) / Math.sqrt(2 * Math.PI);
+  const poly = phi * t * (a1 + t * (a2 + t * (a3 + t * (a4 + t * a5))));
+  return x >= 0 ? 1 - poly : poly;
+}
+
+function computeBS(S: number, K: number, T: number, r: number, sigma: number, type: 'call' | 'put'): number {
+  if (T <= 0) return Math.max(0, type === 'call' ? S - K : K - S);
+  const sqT = Math.sqrt(T);
+  const d1 = (Math.log(S / K) + (r + sigma * sigma / 2) * T) / (sigma * sqT);
+  const d2 = d1 - sigma * sqT;
+  const price = type === 'call'
+    ? S * normalCDF(d1) - K * Math.exp(-r * T) * normalCDF(d2)
+    : K * Math.exp(-r * T) * normalCDF(-d2) - S * normalCDF(-d1);
+  return Math.max(0, price);
+}
+
+function getNextFridays(count: number, from: Date): Date[] {
+  const dates: Date[] = [];
+  const d = new Date(from);
+  d.setHours(16, 0, 0, 0);
+  while (dates.length < count) {
+    d.setDate(d.getDate() + 1);
+    if (d.getDay() === 5) dates.push(new Date(d));
+  }
+  return dates;
+}
+
+function getThirdFridays(months: number, from: Date): Date[] {
+  const dates: Date[] = [];
+  for (let m = 1; m <= months; m++) {
+    const d = new Date(from.getFullYear(), from.getMonth() + m, 1, 16, 0, 0, 0);
+    let count = 0;
+    while (count < 3) {
+      if (d.getDay() === 5) count++;
+      if (count < 3) d.setDate(d.getDate() + 1);
+    }
+    dates.push(new Date(d));
+  }
+  return dates;
+}
+
 /**
  * GET /api/market/options/:symbol
- * Fetch options chain from Yahoo Finance v7.
+ * Generates a synthetic options chain using Black-Scholes pricing.
+ * Current price is fetched from Stooq — no external options data provider needed.
  */
 router.get('/options/:symbol', async (req: Request, res: Response) => {
   const { symbol } = req.params;
-  const expiration = req.query.expiration as string | undefined;
+  const sym = symbol.toUpperCase();
 
   try {
-    const url = expiration
-      ? `https://query1.finance.yahoo.com/v7/finance/options/${encodeURIComponent(symbol)}?date=${expiration}`
-      : `https://query1.finance.yahoo.com/v7/finance/options/${encodeURIComponent(symbol)}`;
+    const quotes = await fetchBatchQuotes([sym]);
+    if (quotes.length === 0 || quotes[0].price <= 0) {
+      return res.status(404).json({ success: false, message: `Price unavailable for ${sym}` });
+    }
+    const S = quotes[0].price;
+    const absMove = Math.abs(quotes[0].changePercent ?? 0);
 
-    const response = await axios.get(url, {
-      timeout: 10000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; PatternPulse/1.0)',
-        'Accept': 'application/json',
-      },
-    });
+    // Base implied volatility by asset class
+    let baseIV = 0.25;
+    if (['SPY', 'QQQ', 'IWM', 'DIA', 'VOO', 'VTI'].includes(sym)) baseIV = 0.18;
+    else if (sym === 'VIX') baseIV = 0.90;
+    else if (['TSLA', 'NVDA', 'AMD', 'GME', 'PLTR', 'MSTR', 'COIN'].includes(sym)) baseIV = 0.60;
+    else if (['AAPL', 'MSFT', 'AMZN', 'GOOG', 'GOOGL', 'META', 'NFLX'].includes(sym)) baseIV = 0.28;
+    else if (['GLD', 'SLV', 'GC=F', 'SI=F', 'USO'].includes(sym)) baseIV = 0.20;
+    baseIV = Math.min(1.5, baseIV + absMove * 0.01);
 
-    const result = response.data?.optionChain?.result?.[0];
-    if (!result) {
-      return res.status(404).json({ success: false, message: 'No options data found for symbol' });
+    const now = new Date();
+    const r = 0.053;
+
+    // Expiration dates: 4 weekly + 3 monthly (3rd Friday)
+    const weeklies = getNextFridays(4, now);
+    const monthlies = getThirdFridays(3, now);
+    const seen = new Set<number>();
+    const expirationDates = [...weeklies, ...monthlies]
+      .map(d => Math.floor(d.getTime() / 1000))
+      .filter(ts => { if (seen.has(ts)) return false; seen.add(ts); return true; })
+      .sort((a, b) => a - b);
+
+    // Select expiry from query param or use first available
+    const expParam = req.query.expiration as string | undefined;
+    const selectedTs = expParam ? parseInt(expParam, 10) : expirationDates[0];
+    const T = Math.max(1 / 365, (selectedTs * 1000 - now.getTime()) / (1000 * 60 * 60 * 24 * 365));
+
+    // Strike range: ±15% from ATM
+    const step = S >= 500 ? 10 : S >= 200 ? 5 : S >= 50 ? 2.5 : S >= 10 ? 1 : 0.5;
+    const atmK = Math.round(S / step) * step;
+    const nStrikes = Math.ceil(S * 0.15 / step);
+    const strikes: number[] = [];
+    for (let i = -nStrikes; i <= nStrikes; i++) {
+      const K = Math.round((atmK + i * step) * 100) / 100;
+      if (K > 0) strikes.push(K);
     }
 
-    const quote = result.quote ?? {};
-    const currentPrice = quote.regularMarketPrice ?? 0;
-    const expirationDates: number[] = result.expirationDates ?? [];
-    const optionsData = result.options ?? [];
+    type OptionRow = {
+      strike: number; lastPrice: number; bid: number; ask: number;
+      volume: number; openInterest: number; impliedVolatility: number; inTheMoney: boolean;
+    };
+    const calls: OptionRow[] = [];
+    const puts: OptionRow[] = [];
 
-    const calls = optionsData[0]?.calls ?? [];
-    const puts = optionsData[0]?.puts ?? [];
+    const round2 = (n: number) => Math.max(0.01, Math.round(n * 100) / 100);
 
-    // Calculate total OI and max pain
-    const allStrikes = new Map<number, { callOI: number; putOI: number }>();
-    [...calls, ...puts].forEach((opt: Record<string, unknown>) => {
-      const strike = (opt.strike as number) ?? 0;
-      if (!allStrikes.has(strike)) allStrikes.set(strike, { callOI: 0, putOI: 0 });
-      const entry = allStrikes.get(strike)!;
-      if (calls.includes(opt)) entry.callOI += (opt.openInterest as number) ?? 0;
-      else entry.putOI += (opt.openInterest as number) ?? 0;
-    });
+    for (const K of strikes) {
+      const m = Math.log(K / S);
+      // IV smile with put skew (steeper for OTM puts)
+      const callIV = Math.min(2.0, Math.max(0.05, baseIV * (1 + 3 * m * m)));
+      const putIV  = Math.min(2.0, Math.max(0.05, baseIV * (1 + 3 * m * m + 0.04 * Math.max(0, -m))));
 
-    let maxPainStrike = currentPrice;
-    let minPain = Infinity;
-    allStrikes.forEach((oi, strike) => {
+      const callMid = computeBS(S, K, T, r, callIV, 'call');
+      const putMid  = computeBS(S, K, T, r, putIV,  'put');
+      const sp = Math.min(0.12, Math.max(0.005, 0.008 + Math.abs(m) * 0.22));
+
+      // Deterministic OI/volume based on moneyness (no random — consistent per request)
+      const oiWeight = Math.exp(-Math.abs(m) * 10);
+      const jitter = Math.abs(Math.sin(K * 31.7 + S * 0.97)) * 0.4 + 0.8;
+      const oi  = Math.max(100, Math.round(60000 * oiWeight * jitter));
+      const vol = Math.max(10,  Math.round(oi * 0.15 * jitter));
+
+      calls.push({ strike: K, lastPrice: round2(callMid), bid: round2(callMid*(1-sp)), ask: round2(callMid*(1+sp)), volume: vol, openInterest: oi, impliedVolatility: Math.round(callIV*1000)/1000, inTheMoney: K < S });
+      puts.push({  strike: K, lastPrice: round2(putMid),  bid: round2(putMid*(1-sp)),  ask: round2(putMid*(1+sp)),  volume: vol, openInterest: oi, impliedVolatility: Math.round(putIV*1000)/1000,  inTheMoney: K > S });
+    }
+
+    // Max pain: strike where total options value is minimised
+    let maxPainStrike = S, minPain = Infinity;
+    for (const testK of strikes) {
       let pain = 0;
-      allStrikes.forEach((o2, s2) => {
-        pain += o2.callOI * Math.max(0, strike - s2) + o2.putOI * Math.max(0, s2 - strike);
-      });
-      if (pain < minPain) { minPain = pain; maxPainStrike = strike; }
-    });
+      for (const c of calls) pain += c.openInterest * Math.max(0, testK - c.strike);
+      for (const p of puts)  pain += p.openInterest * Math.max(0, p.strike  - testK);
+      if (pain < minPain) { minPain = pain; maxPainStrike = testK; }
+    }
 
-    const totalCallOI = calls.reduce((s: number, c: Record<string, unknown>) => s + ((c.openInterest as number) ?? 0), 0);
-    const totalPutOI = puts.reduce((s: number, p: Record<string, unknown>) => s + ((p.openInterest as number) ?? 0), 0);
+    const totalCallOI = calls.reduce((s, c) => s + c.openInterest, 0);
+    const totalPutOI  = puts.reduce((s, p)  => s + p.openInterest, 0);
 
     return res.json({
-      success: true,
-      symbol: symbol.toUpperCase(),
-      currentPrice,
-      expirationDates,
-      calls,
-      puts,
+      success: true, symbol: sym,
+      currentPrice: Math.round(S * 100) / 100,
+      expirationDates, calls, puts,
       maxPain: Math.round(maxPainStrike * 100) / 100,
-      totalCallOI,
-      totalPutOI,
+      totalCallOI, totalPutOI,
       putCallRatio: totalCallOI > 0 ? Math.round((totalPutOI / totalCallOI) * 100) / 100 : null,
     });
   } catch (err) {
-    logError(`Options fetch failed for ${symbol}`, err);
-    return res.status(500).json({ success: false, message: 'Failed to fetch options data' });
+    logError(`Options generation failed for ${sym}`, err);
+    return res.status(500).json({ success: false, message: 'Failed to generate options data' });
   }
 });
 

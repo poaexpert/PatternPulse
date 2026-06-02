@@ -53,6 +53,12 @@ interface AppState {
   selectedSymbol: string | null;
   isInitialLoading: boolean;
 
+  // User
+  userEmail: string | null;
+  userTier: 'free' | 'pro' | 'elite';
+  adminToken: string | null;
+  isAdminLoggedIn: boolean;
+
   // Actions
   setScanResults: (results: ScanResult[]) => void;
   setScanInProgress: (v: boolean) => void;
@@ -79,6 +85,12 @@ interface AppState {
   removeAlert: (id: string) => void;
   addAlert: (alert: Alert) => void;
 
+  setUserEmail: (email: string | null) => void;
+  setUserTier: (tier: 'free' | 'pro' | 'elite') => void;
+  setAdminToken: (token: string | null) => void;
+  setAdminLoggedIn: (v: boolean) => void;
+  logoutAdmin: () => void;
+
   filteredResults: () => ScanResult[];
 }
 
@@ -104,6 +116,10 @@ export const useStore = create<AppState>()(persist((set, get) => ({
   activeView: 'dashboard',
   selectedSymbol: null,
   isInitialLoading: true,
+  userEmail: null,
+  userTier: 'free',
+  adminToken: null,
+  isAdminLoggedIn: false,
 
   // Actions
   setScanResults: (results) => set({ scanResults: results }),
@@ -188,6 +204,12 @@ export const useStore = create<AppState>()(persist((set, get) => ({
   addAlert: (alert) =>
     set((state) => ({ alerts: [alert, ...state.alerts] })),
 
+  setUserEmail: (email) => set({ userEmail: email }),
+  setUserTier: (tier) => set({ userTier: tier }),
+  setAdminToken: (token) => set({ adminToken: token, isAdminLoggedIn: !!token }),
+  setAdminLoggedIn: (v) => set({ isAdminLoggedIn: v }),
+  logoutAdmin: () => set({ adminToken: null, isAdminLoggedIn: false }),
+
   filteredResults: () => {
     const { scanResults, scanFilter } = get();
     let results = [...scanResults];
@@ -242,5 +264,8 @@ export const useStore = create<AppState>()(persist((set, get) => ({
   partialize: (state) => ({
     analysisHistory: state.analysisHistory,
     scanFilter: state.scanFilter,
+    userEmail: state.userEmail,
+    userTier: state.userTier,
+    adminToken: state.adminToken,
   }),
 }));

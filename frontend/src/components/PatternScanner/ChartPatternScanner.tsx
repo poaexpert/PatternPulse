@@ -12,6 +12,11 @@ interface PatternAnalysis {
   description: string;
   action: string;
   patternDiagram: string;
+  entryPrice?: number;
+  stopPrice?: number;
+  target1?: number;
+  target2?: number;
+  riskReward?: number;
 }
 
 // ASCII diagram map for each pattern
@@ -287,6 +292,63 @@ export default function ChartPatternScanner() {
               <p className="text-[10px] font-bold uppercase tracking-widest mb-2 text-terminal-yellow">What to Do</p>
               <p className="text-sm text-terminal-text-primary leading-relaxed">{analysis.action}</p>
             </div>
+
+            {/* Trade Setup — only shown when a symbol was entered (price levels computed) */}
+            {analysis.entryPrice ? (
+              <div className="bg-terminal-card border border-terminal-border rounded-xl p-4">
+                <p className="text-[10px] font-bold text-terminal-text-secondary uppercase tracking-widest mb-3">Trade Setup</p>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div className="bg-terminal-bg rounded-lg p-2.5">
+                    <p className="text-[10px] text-terminal-text-secondary mb-0.5">{analysis.patternType.includes('BULLISH') ? 'Buy Entry' : 'Short Entry'}</p>
+                    <p className="text-sm font-black text-terminal-cyan tabular-nums">${analysis.entryPrice.toFixed(2)}</p>
+                    <p className="text-[10px] text-terminal-text-secondary/60">{analysis.patternType.includes('BULLISH') ? 'On breakout above' : 'On breakdown below'}</p>
+                  </div>
+                  <div className="bg-terminal-bg rounded-lg p-2.5">
+                    <p className="text-[10px] text-terminal-text-secondary mb-0.5">Stop Loss</p>
+                    <p className="text-sm font-black text-terminal-red tabular-nums">${analysis.stopPrice?.toFixed(2) ?? '—'}</p>
+                    <p className="text-[10px] text-terminal-text-secondary/60">
+                      Max risk: {analysis.stopPrice && analysis.entryPrice
+                        ? `$${Math.abs(analysis.entryPrice - analysis.stopPrice).toFixed(2)}`
+                        : '—'}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-terminal-bg rounded-lg p-2.5">
+                    <p className="text-[10px] text-terminal-text-secondary mb-0.5">Target 1</p>
+                    <p className="text-sm font-bold text-terminal-green tabular-nums">${analysis.target1?.toFixed(2) ?? '—'}</p>
+                    <p className="text-[10px] text-terminal-text-secondary/60">
+                      {analysis.target1 && analysis.entryPrice
+                        ? `+$${Math.abs(analysis.target1 - analysis.entryPrice).toFixed(2)}`
+                        : ''}
+                    </p>
+                  </div>
+                  <div className="bg-terminal-bg rounded-lg p-2.5">
+                    <p className="text-[10px] text-terminal-text-secondary mb-0.5">Target 2</p>
+                    <p className="text-sm font-bold text-terminal-green tabular-nums">${analysis.target2?.toFixed(2) ?? '—'}</p>
+                    <p className="text-[10px] text-terminal-text-secondary/60">
+                      {analysis.target2 && analysis.entryPrice
+                        ? `+$${Math.abs(analysis.target2 - analysis.entryPrice).toFixed(2)}`
+                        : ''}
+                    </p>
+                  </div>
+                  <div className="bg-terminal-bg rounded-lg p-2.5 border border-terminal-yellow/20">
+                    <p className="text-[10px] text-terminal-text-secondary mb-0.5">Risk:Reward</p>
+                    <p className={`text-sm font-black tabular-nums ${(analysis.riskReward ?? 0) >= 2 ? 'text-terminal-green' : 'text-terminal-yellow'}`}>
+                      {analysis.riskReward ? `${analysis.riskReward}:1` : '—'}
+                    </p>
+                    <p className="text-[10px] text-terminal-text-secondary/60">
+                      {(analysis.riskReward ?? 0) >= 2 ? 'Excellent setup' : (analysis.riskReward ?? 0) >= 1.5 ? 'Good setup' : 'Fair setup'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-terminal-card border border-terminal-border/50 rounded-xl p-3 flex items-center gap-2">
+                <svg className="w-4 h-4 text-terminal-text-secondary/40 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                <p className="text-xs text-terminal-text-secondary/60">Enter a ticker symbol above to see specific entry, stop & target prices</p>
+              </div>
+            )}
           </div>
         ) : (
           <div className="bg-terminal-card border border-terminal-border rounded-xl p-6 flex flex-col items-center justify-center text-center gap-3" style={{ minHeight: 300 }}>

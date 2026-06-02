@@ -565,8 +565,20 @@ export async function searchSymbols(query: string): Promise<SymbolSearchResult[]
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
+// ── In-memory quote cache (60 s TTL) ──────────────────────────────────────────
+const _quoteCache = new Map<string, { data: QuoteData[]; ts: number }>();
+const QUOTE_CACHE_TTL = 60_000;
+
+function cacheKey(symbols: string[]): string {
+  return [...symbols].sort().join(',');
+}
+
 export async function fetchBatchQuotes(symbols: string[]): Promise<QuoteData[]> {
   if (symbols.length === 0) return [];
+
+  const key = cacheKey(symbols);
+  const cached = _quoteCache.get(key);
+  if (cached && Date.now() - cached.ts < QUOTE_CACHE_TTL) return cached.data;
 
   // 1. Stooq batch (fast, no auth, works on Railway)
   const stooqResults = await fetchStooqBatchQuotes(symbols);
@@ -586,7 +598,9 @@ export async function fetchBatchQuotes(symbols: string[]): Promise<QuoteData[]> 
     }
   }
 
-  return [...stooqResults, ...yahooResults];
+  const result = [...stooqResults, ...yahooResults];
+  _quoteCache.set(key, { data: result, ts: Date.now() });
+  return result;
 }
 
 export async function fetchHistoricalData(

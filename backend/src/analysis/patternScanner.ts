@@ -15,6 +15,11 @@ export interface PatternAnalysis {
   description: string;
   action: string;
   patternDiagram: string; // key for frontend diagram
+  entryPrice?: number;
+  stopPrice?: number;
+  target1?: number;
+  target2?: number;
+  riskReward?: number;
 }
 
 /**
@@ -149,13 +154,32 @@ function detectTrend(line: number[]): 'BULLISH' | 'BEARISH' | 'SIDEWAYS' {
   return 'SIDEWAYS';
 }
 
+// Per-pattern trade level parameters
+// entryFactor: how far from current price to enter (fraction)
+// stopFactor: how far stop is from entry (fraction)
+// t1Factor / t2Factor: profit target distances from entry (fraction)
+const PATTERN_LEVELS: Record<string, { entry: number; stop: number; t1: number; t2: number }> = {
+  'Head & Shoulders':           { entry: 0.015, stop: 0.030, t1: 0.060, t2: 0.105 },
+  'Inverse Head & Shoulders':   { entry: 0.012, stop: 0.025, t1: 0.055, t2: 0.095 },
+  'Double Top':                 { entry: 0.010, stop: 0.025, t1: 0.055, t2: 0.095 },
+  'Double Bottom':              { entry: 0.010, stop: 0.020, t1: 0.055, t2: 0.095 },
+  'Ascending Triangle':         { entry: 0.005, stop: 0.020, t1: 0.045, t2: 0.075 },
+  'Descending Triangle':        { entry: 0.005, stop: 0.020, t1: 0.045, t2: 0.075 },
+  'Symmetrical Triangle':       { entry: 0.010, stop: 0.025, t1: 0.045, t2: 0.080 },
+  'Bull Flag':                  { entry: 0.005, stop: 0.018, t1: 0.060, t2: 0.100 },
+  'Bear Flag':                  { entry: 0.005, stop: 0.018, t1: 0.060, t2: 0.100 },
+  'Falling Wedge':              { entry: 0.010, stop: 0.030, t1: 0.065, t2: 0.110 },
+  'Rising Wedge':               { entry: 0.010, stop: 0.030, t1: 0.065, t2: 0.110 },
+  'Cup and Handle':             { entry: 0.010, stop: 0.025, t1: 0.070, t2: 0.120 },
+};
+
 /** Core pattern matching logic */
 function matchPattern(
   line: number[],
   peaks: number[],
   troughs: number[],
   trend: 'BULLISH' | 'BEARISH' | 'SIDEWAYS'
-): Omit<PatternAnalysis, 'resistance' | 'support'> {
+): Omit<PatternAnalysis, 'resistance' | 'support' | 'entryPrice' | 'stopPrice' | 'target1' | 'target2' | 'riskReward'> {
 
   const n = line.length;
   const pv = (idx: number) => line[idx] ?? 0.5; // price value at index
@@ -429,9 +453,49 @@ export async function analyzeChartImage(
     if (resistance < currentPrice) resistance = undefined;
   }
 
+  // Trade level calculation when current price is available
+  let entryPrice: number | undefined;
+  let stopPrice: number | undefined;
+  let target1: number | undefined;
+  let target2: number | undefined;
+  let riskReward: number | undefined;
+
+  if (currentPrice && currentPrice > 0) {
+    const levels = PATTERN_LEVELS[baseResult.pattern];
+    const ef = levels?.entry ?? 0.010;
+    const sf = levels?.stop  ?? 0.025;
+    const t1 = levels?.t1    ?? 0.055;
+    const t2 = levels?.t2    ?? 0.095;
+
+    const isBull = baseResult.patternType === 'BULLISH_REVERSAL' || baseResult.patternType === 'CONTINUATION_BULLISH';
+    const isBear = baseResult.patternType === 'BEARISH_REVERSAL' || baseResult.patternType === 'CONTINUATION_BEARISH';
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+
+    if (isBull) {
+      entryPrice = r2(currentPrice * (1 + ef));
+      stopPrice  = r2(entryPrice  * (1 - sf));
+      target1    = r2(entryPrice  * (1 + t1));
+      target2    = r2(entryPrice  * (1 + t2));
+      const risk = entryPrice - stopPrice;
+      riskReward = risk > 0 ? Math.round((target1 - entryPrice) / risk * 10) / 10 : undefined;
+    } else if (isBear) {
+      entryPrice = r2(currentPrice * (1 - ef));
+      stopPrice  = r2(entryPrice  * (1 + sf));
+      target1    = r2(entryPrice  * (1 - t1));
+      target2    = r2(entryPrice  * (1 - t2));
+      const risk = stopPrice - entryPrice;
+      riskReward = risk > 0 ? Math.round((entryPrice - target1) / risk * 10) / 10 : undefined;
+    }
+  }
+
   return {
     ...baseResult,
     support,
     resistance,
+    entryPrice,
+    stopPrice,
+    target1,
+    target2,
+    riskReward,
   };
 }

@@ -116,7 +116,7 @@ export interface MarketStatus {
   vixLevel: number;
 }
 
-export type ActiveView = 'dashboard' | 'scanner' | 'alerts' | 'watchlist' | 'settings' | 'ai-analysis' | 'futures' | 'journal' | 'news' | 'earnings' | 'calendar' | 'heatmap' | 'pattern-scanner' | 'risk-calc' | 'multi-tf' | 'crypto' | 'paper-trade' | 'screener' | 'options';
+export type ActiveView = 'dashboard' | 'scanner' | 'alerts' | 'watchlist' | 'settings' | 'ai-analysis' | 'futures' | 'journal' | 'news' | 'earnings' | 'calendar' | 'heatmap' | 'pattern-scanner' | 'risk-calc' | 'multi-tf' | 'crypto' | 'paper-trade' | 'screener' | 'options' | 'admin' | 'pricing' | 'analytics';
 
 export interface JournalEntry {
   id: string;

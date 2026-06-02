@@ -457,19 +457,17 @@ function GlobalMarketsPanel({ quotes, loading }: { quotes: Record<string, QuoteS
                 const pct = q?.changePercent ?? 0;
                 const up = pct >= 0;
                 return (
-                  <div key={symbol} onClick={() => { setSelectedSymbol(symbol); setActiveView('ai-analysis'); }} className={`flex items-center gap-2 px-2.5 py-2 rounded-lg bg-terminal-bg border cursor-pointer hover:opacity-90 transition-opacity ${up ? 'border-terminal-green/15' : 'border-terminal-red/15'}`}>
-                    <span className="text-base">{flag}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-terminal-text-primary leading-none">{name}</p>
-                      <p className="text-[10px] text-terminal-text-secondary">{symbol}</p>
+                  <div key={symbol} onClick={() => { setSelectedSymbol(symbol); setActiveView('ai-analysis'); }} className={`flex flex-col gap-0.5 px-2 py-1.5 rounded-lg bg-terminal-bg border cursor-pointer hover:opacity-90 transition-opacity ${up ? 'border-terminal-green/15' : 'border-terminal-red/15'}`}>
+                    <div className="flex items-center gap-1 justify-between">
+                      <span className="flex items-center gap-1 min-w-0">
+                        <span className="text-sm leading-none shrink-0">{flag}</span>
+                        <span className="text-xs font-bold text-terminal-text-primary truncate">{name}</span>
+                      </span>
+                      {!loading && q && <span className="text-[10px] font-bold tabular-nums text-terminal-text-primary shrink-0">{fmtPx(q.price)}</span>}
                     </div>
-                    <div className="text-right shrink-0">
-                      {loading && !q ? <LoadDots /> : q ? (
-                        <>
-                          <p className="text-xs font-bold tabular-nums text-terminal-text-primary">{fmtPx(q.price)}</p>
-                          <ChangeChip pct={q.changePercent} />
-                        </>
-                      ) : <span className="text-xs text-terminal-text-secondary/40">—</span>}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-terminal-text-secondary">{symbol}</span>
+                      {loading && !q ? <LoadDots /> : q ? <ChangeChip pct={q.changePercent} /> : <span className="text-[10px] text-terminal-text-secondary/40">—</span>}
                     </div>
                   </div>
                 );

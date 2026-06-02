@@ -23,6 +23,10 @@ import CryptoDashboard from './components/Crypto/CryptoDashboard';
 import PaperTrading from './components/PaperTrade/PaperTrading';
 import MarketScreener from './components/Screener/MarketScreener';
 import OptionsChain from './components/Options/OptionsChain';
+import AdminPanel from './components/Admin/AdminPanel';
+import PricingPage from './components/Pricing/PricingPage';
+import AnalyticsPage from './components/Analytics/AnalyticsPage';
+import { useAnalytics } from './hooks/useAnalytics';
 import type { ScanResult, Alert, WatchlistItem, NotificationSettings as NS } from './types';
 
 function LoadingScreen() {
@@ -52,6 +56,7 @@ function LoadingScreen() {
 
 export default function App() {
   useSocket();
+  useAnalytics();
 
   const {
     activeView,
@@ -175,6 +180,9 @@ export default function App() {
       case 'paper-trade':      return <PaperTrading />;
       case 'screener':         return <MarketScreener />;
       case 'options':          return <OptionsChain />;
+      case 'admin':            return <AdminPanel />;
+      case 'pricing':          return <PricingPage />;
+      case 'analytics':        return <AnalyticsPage />;
       default:                 return <Dashboard />;
     }
   };
