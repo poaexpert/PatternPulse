@@ -273,4 +273,9 @@ export const useStore = create<AppState>()(persist((set, get) => ({
     grantedFree: state.grantedFree,
     adminToken: state.adminToken,
   }),
+  onRehydrateStorage: () => (state) => {
+    if (state) {
+      state.isAdminLoggedIn = !!state.adminToken;
+    }
+  },
 }));
