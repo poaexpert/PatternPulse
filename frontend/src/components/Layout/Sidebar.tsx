@@ -160,7 +160,7 @@ export default function Sidebar() {
     if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
     if (tapCountRef.current >= 5) {
       tapCountRef.current = 0;
-      setActiveView('admin');
+      window.dispatchEvent(new Event('pp-admin-tap'));
       return;
     }
     tapTimerRef.current = setTimeout(() => { tapCountRef.current = 0; }, 2000);
