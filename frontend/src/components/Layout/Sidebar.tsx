@@ -263,13 +263,17 @@ export default function Sidebar() {
                 Pattern<span className="text-terminal-cyan">Pulse</span>
               </div>
               <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
-                userTier === 'elite'
+                isAdminLoggedIn
+                  ? 'bg-terminal-cyan/10 text-terminal-cyan border border-terminal-cyan/20'
+                  : grantedFree
+                  ? 'bg-terminal-cyan/10 text-terminal-cyan border border-terminal-cyan/20'
+                  : userTier === 'elite'
                   ? 'bg-terminal-purple/10 text-terminal-purple border border-terminal-purple/20'
                   : userTier === 'pro'
                   ? 'bg-terminal-green/10 text-terminal-green border border-terminal-green/20'
                   : 'bg-terminal-border/40 text-terminal-text-secondary border border-terminal-border'
               }`}>
-                {userTier.toUpperCase()}
+                {isAdminLoggedIn ? 'ADMIN' : grantedFree ? 'FULL' : userTier.toUpperCase()}
               </span>
             </div>
             <div className="text-xs text-terminal-text-secondary mt-0.5 truncate">Stock Scanner</div>
@@ -337,8 +341,8 @@ export default function Sidebar() {
         </ul>
       </nav>
 
-      {/* Upgrade button */}
-      {userTier === 'free' && (
+      {/* Upgrade button — hidden for admin and grantedFree users */}
+      {userTier === 'free' && !isAdminLoggedIn && !grantedFree && (
         <div className="px-2 pb-2">
           <button
             onClick={() => setActiveView('pricing')}
