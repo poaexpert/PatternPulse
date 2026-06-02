@@ -146,7 +146,7 @@ const ELITE_GATED: string[] = [
 ];
 
 export default function Sidebar() {
-  const { activeView, setActiveView, alerts, watchlist, marketStatus, userTier, isAdminLoggedIn } = useStore();
+  const { activeView, setActiveView, alerts, watchlist, marketStatus, userTier, grantedFree, isAdminLoggedIn } = useStore();
 
   const activeAlertCount = alerts.filter((a) => a.active).length;
   const watchlistCount = watchlist.length;
@@ -281,8 +281,10 @@ export default function Sidebar() {
       <nav className="flex-1 py-3 px-2">
         <ul className="space-y-0.5">
           {navItems.map((item) => {
-            const isProLocked   = PRO_GATED.includes(item.id)   && userTier === 'free';
-            const isEliteLocked = ELITE_GATED.includes(item.id) && userTier !== 'elite';
+            // Admins and users with grantedFree bypass all tier locks
+            const hasFullAccess = isAdminLoggedIn || grantedFree;
+            const isProLocked   = !hasFullAccess && PRO_GATED.includes(item.id)   && userTier === 'free';
+            const isEliteLocked = !hasFullAccess && ELITE_GATED.includes(item.id) && userTier !== 'elite';
             const isLocked = isProLocked || isEliteLocked;
             const isActive = activeView === item.id;
             const badge =

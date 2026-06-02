@@ -181,7 +181,7 @@ function SubscribeModal({
 }
 
 export default function PricingPage() {
-  const { userTier, setUserTier, setUserEmail, userEmail } = useStore();
+  const { userTier, setUserTier, setUserEmail, setGrantedFree, userEmail } = useStore();
   const [modalTier, setModalTier] = useState<TierCard | null>(null);
   const [lookupEmail, setLookupEmail] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
@@ -221,6 +221,7 @@ export default function PricingPage() {
       if (found?.tier) {
         setUserTier(found.tier as 'free' | 'pro' | 'elite');
         setUserEmail(lookupEmail.trim());
+        setGrantedFree(!!found.grantedFree);
         setLookupMsg(`Access confirmed: ${(found.tier as string).toUpperCase()} tier activated.`);
       } else {
         setLookupMsg('No account found for that email.');

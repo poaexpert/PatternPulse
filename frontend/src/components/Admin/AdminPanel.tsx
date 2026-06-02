@@ -213,7 +213,7 @@ function LoginForm() {
 
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 
-function OverviewTab({ token }: { token: string }) {
+function OverviewTab({ token, setTab }: { token: string; setTab: (t: AdminTab) => void }) {
   const [stats, setStats] = useState<{ total: number; free: number; pro: number; elite: number } | null>(null);
   const [revenue, setRevenue] = useState<{ mrr: number; configured: boolean } | null>(null);
   const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary | null>(null);
@@ -239,8 +239,6 @@ function OverviewTab({ token }: { token: string }) {
     fetch();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
-
-  const { setActiveView } = useStore();
 
   return (
     <div className="space-y-6">
@@ -285,7 +283,7 @@ function OverviewTab({ token }: { token: string }) {
           { label: 'Analytics', icon: '📊', tab: 'analytics' as AdminTab },
           { label: 'Site Settings', icon: '⚙️', tab: 'settings' as AdminTab },
         ].map(q => (
-          <button key={q.label} onClick={() => setActiveView('admin')} className="flex items-center gap-2 px-4 py-3 bg-terminal-card border border-terminal-border rounded-xl text-sm text-terminal-text-secondary hover:text-terminal-text-primary hover:border-terminal-cyan/30 transition-all">
+          <button key={q.label} onClick={() => setTab(q.tab)} className="flex items-center gap-2 px-4 py-3 bg-terminal-card border border-terminal-border rounded-xl text-sm text-terminal-text-secondary hover:text-terminal-text-primary hover:border-terminal-cyan/30 transition-all">
             <span>{q.icon}</span>
             <span>{q.label}</span>
           </button>
@@ -938,7 +936,7 @@ export default function AdminPanel() {
 
       {/* Tab content */}
       <div className="bg-terminal-card border border-terminal-border rounded-xl p-5">
-        {activeTab === 'overview'  && <OverviewTab  token={adminToken} />}
+        {activeTab === 'overview'  && <OverviewTab  token={adminToken} setTab={setActiveTab} />}
         {activeTab === 'users'     && <UsersTab     token={adminToken} />}
         {activeTab === 'revenue'   && <RevenueTab   token={adminToken} />}
         {activeTab === 'analytics' && <AnalyticsTab token={adminToken} />}

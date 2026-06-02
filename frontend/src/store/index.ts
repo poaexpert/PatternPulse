@@ -56,6 +56,7 @@ interface AppState {
   // User
   userEmail: string | null;
   userTier: 'free' | 'pro' | 'elite';
+  grantedFree: boolean; // admin gave this user full access regardless of tier
   adminToken: string | null;
   isAdminLoggedIn: boolean;
 
@@ -87,6 +88,7 @@ interface AppState {
 
   setUserEmail: (email: string | null) => void;
   setUserTier: (tier: 'free' | 'pro' | 'elite') => void;
+  setGrantedFree: (v: boolean) => void;
   setAdminToken: (token: string | null) => void;
   setAdminLoggedIn: (v: boolean) => void;
   logoutAdmin: () => void;
@@ -118,6 +120,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
   isInitialLoading: true,
   userEmail: null,
   userTier: 'free',
+  grantedFree: false,
   adminToken: null,
   isAdminLoggedIn: false,
 
@@ -206,6 +209,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
 
   setUserEmail: (email) => set({ userEmail: email }),
   setUserTier: (tier) => set({ userTier: tier }),
+  setGrantedFree: (v) => set({ grantedFree: v }),
   setAdminToken: (token) => set({ adminToken: token, isAdminLoggedIn: !!token }),
   setAdminLoggedIn: (v) => set({ isAdminLoggedIn: v }),
   logoutAdmin: () => set({ adminToken: null, isAdminLoggedIn: false }),
@@ -266,6 +270,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
     scanFilter: state.scanFilter,
     userEmail: state.userEmail,
     userTier: state.userTier,
+    grantedFree: state.grantedFree,
     adminToken: state.adminToken,
   }),
 }));

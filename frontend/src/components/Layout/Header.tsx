@@ -127,7 +127,7 @@ function MarketStatusChip() {
 // ── Account menu (My Account only — no admin tab for regular users) ────────────
 
 function AccountMenu() {
-  const { userTier, userEmail, setUserTier, setUserEmail, isAdminLoggedIn, setActiveView } = useStore();
+  const { userTier, userEmail, grantedFree, setUserTier, setUserEmail, setGrantedFree, isAdminLoggedIn, setActiveView } = useStore();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -156,6 +156,7 @@ function AccountMenu() {
       if (found?.tier) {
         setUserTier(found.tier as 'free' | 'pro' | 'elite');
         setUserEmail(lookupEmail.trim());
+        setGrantedFree(!!found.grantedFree);
         setLookupMsg(`✓ ${(found.tier as string).toUpperCase()} access activated!`);
       } else {
         setLookupMsg('No account found for that email.');
@@ -170,11 +171,14 @@ function AccountMenu() {
   const handleSignOut = () => {
     setUserTier('free');
     setUserEmail(null);
+    setGrantedFree(false);
     setLookupMsg('');
     setLookupEmail('');
   };
 
-  const tierColor = userTier === 'elite'
+  const tierColor = isAdminLoggedIn
+    ? 'text-terminal-cyan border-terminal-cyan/30 bg-terminal-cyan/10'
+    : userTier === 'elite'
     ? 'text-terminal-purple border-terminal-purple/30 bg-terminal-purple/10'
     : userTier === 'pro'
     ? 'text-terminal-green border-terminal-green/30 bg-terminal-green/10'
@@ -192,7 +196,7 @@ function AccountMenu() {
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
         </svg>
         <span className="hidden sm:block max-w-[80px] truncate">
-          {userEmail ? userEmail.split('@')[0] : userTier.toUpperCase()}
+          {isAdminLoggedIn ? 'ADMIN' : userEmail ? userEmail.split('@')[0] : userTier.toUpperCase()}
         </span>
         <svg className={`w-3 h-3 shrink-0 transition-transform hidden sm:block ${open ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
@@ -203,20 +207,25 @@ function AccountMenu() {
             {/* Status row */}
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xs text-terminal-text-secondary">Current Plan</div>
+                <div className="text-xs text-terminal-text-secondary">{isAdminLoggedIn ? 'Logged in as' : 'Current Plan'}</div>
                 <div className={`text-sm font-bold mt-0.5 ${
-                  userTier === 'elite' ? 'text-terminal-purple' : userTier === 'pro' ? 'text-terminal-green' : 'text-terminal-text-primary'
-                }`}>{userTier.toUpperCase()}</div>
-                {userEmail && <div className="text-xs text-terminal-text-secondary mt-0.5 truncate max-w-[180px]">{userEmail}</div>}
+                  isAdminLoggedIn ? 'text-terminal-cyan'
+                  : userTier === 'elite' ? 'text-terminal-purple'
+                  : userTier === 'pro' ? 'text-terminal-green'
+                  : 'text-terminal-text-primary'
+                }`}>
+                  {isAdminLoggedIn ? 'ADMIN — Full Access' : userTier.toUpperCase()}
+                </div>
+                {userEmail && !isAdminLoggedIn && <div className="text-xs text-terminal-text-secondary mt-0.5 truncate max-w-[180px]">{userEmail}</div>}
               </div>
               <div className="flex flex-col gap-1.5 items-end">
-                {userTier === 'free' && (
+                {!isAdminLoggedIn && userTier === 'free' && !grantedFree && (
                   <button onClick={() => { setOpen(false); setActiveView('pricing'); }}
                     className="px-3 py-1.5 bg-terminal-cyan text-black text-xs font-bold rounded-lg hover:bg-terminal-cyan/90 transition-colors">
                     Upgrade
                   </button>
                 )}
-                {userEmail && (
+                {userEmail && !isAdminLoggedIn && (
                   <button onClick={handleSignOut} className="text-[11px] text-terminal-text-secondary hover:text-terminal-red transition-colors">
                     Sign out
                   </button>
