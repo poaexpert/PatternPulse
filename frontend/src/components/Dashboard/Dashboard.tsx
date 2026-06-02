@@ -174,8 +174,6 @@ function MarketPulse({ quotes, loading }: { quotes: Record<string, QuoteSnap>; l
     sectors,
   });
 
-  const isBull = signal === 'BULL';
-  const isBear = signal === 'BEAR';
 
   const signalCfg = {
     BULL: {
@@ -843,7 +841,6 @@ function MarketClock() {
     return () => clearInterval(t);
   }, []);
 
-  const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: false });
   const etDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
   const dayOfWeek = etDate.getDay(); // 0=Sun, 6=Sat
   const h = etDate.getHours();

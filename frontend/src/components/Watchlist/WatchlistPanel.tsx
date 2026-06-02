@@ -79,6 +79,7 @@ function WatchlistRow({
   quote,
   onRemove,
   onUpdate,
+  onAnalyze,
 }: {
   item: WatchlistItem;
   quote: QuoteData | null;
