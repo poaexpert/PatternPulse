@@ -130,20 +130,28 @@ function AccountMenu() {
   const {
     userTier, userEmail, grantedFree,
     setUserTier, setUserEmail, setGrantedFree,
-    isAdminLoggedIn, logoutAdmin, setActiveView,
+    isAdminLoggedIn, setAdminToken, logoutAdmin, setActiveView,
   } = useStore();
 
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<'login' | 'signup'>('login');
+  const [tab, setTab] = useState<'login' | 'signup' | 'admin'>('login');
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // User email lookup
   const [lookupEmail, setLookupEmail] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupMsg, setLookupMsg] = useState('');
 
+  // Sign up
   const [signupEmail, setSignupEmail] = useState('');
   const [signupLoading, setSignupLoading] = useState(false);
   const [signupMsg, setSignupMsg] = useState('');
+
+  // Admin login
+  const [adminUser, setAdminUser] = useState('');
+  const [adminPass, setAdminPass] = useState('');
+  const [adminError, setAdminError] = useState('');
+  const [adminLoading, setAdminLoading] = useState(false);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -194,6 +202,28 @@ function AccountMenu() {
     }
   };
 
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminError('');
+    setAdminLoading(true);
+    try {
+      const res = await axios.post('/api/admin/login', { username: adminUser, password: adminPass });
+      if (res.data?.success && res.data?.token) {
+        setAdminToken(res.data.token);
+        setOpen(false);
+        setAdminUser('');
+        setAdminPass('');
+        setActiveView('admin');
+      } else {
+        setAdminError('Invalid credentials');
+      }
+    } catch {
+      setAdminError('Invalid credentials');
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
   const handleSignOut = () => {
     setUserTier('free');
     setUserEmail(null);
@@ -228,13 +258,14 @@ function AccountMenu() {
       {open && (
         <div className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-16px)] bg-terminal-card border border-terminal-border rounded-xl shadow-2xl z-50 overflow-hidden">
 
-          {/* Admin view */}
+          {/* ── Admin logged in ── */}
           {isAdminLoggedIn ? (
             <div className="p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <svg className="w-4 h-4 text-terminal-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 <span className="text-sm font-bold text-terminal-cyan">ADMIN — Full Access</span>
               </div>
+              <p className="text-xs text-terminal-text-secondary">All features unlocked. Full site control.</p>
               <button onClick={() => { setOpen(false); setActiveView('admin'); }}
                 className="w-full py-2.5 bg-terminal-cyan text-black text-sm font-bold rounded-lg hover:bg-terminal-cyan/90 transition-colors">
                 Open Admin Portal
@@ -245,74 +276,81 @@ function AccountMenu() {
               </button>
             </div>
 
-          ) : isLoggedIn ? (
-            /* Logged-in user view */
-            <div className="p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs text-terminal-text-secondary">Signed in as</div>
-                  <div className="text-xs font-medium text-terminal-text-primary mt-0.5 truncate max-w-[160px]">{userEmail}</div>
-                  <div className={`text-sm font-bold mt-1 ${
-                    grantedFree ? 'text-terminal-cyan'
-                    : userTier === 'elite' ? 'text-terminal-purple'
-                    : userTier === 'pro' ? 'text-terminal-green'
-                    : 'text-terminal-text-primary'
-                  }`}>{grantedFree ? 'FULL ACCESS' : userTier.toUpperCase()}</div>
-                </div>
-                <div className="flex flex-col gap-1.5 items-end">
-                  {userTier === 'free' && !grantedFree && (
-                    <button onClick={() => { setOpen(false); setActiveView('pricing'); }}
-                      className="px-3 py-1.5 bg-terminal-cyan text-black text-xs font-bold rounded-lg hover:bg-terminal-cyan/90">
-                      Upgrade
-                    </button>
-                  )}
-                  <button onClick={handleSignOut} className="text-[11px] text-terminal-text-secondary hover:text-terminal-red transition-colors">Sign out</button>
-                </div>
-              </div>
-              <button onClick={() => { setOpen(false); setActiveView('pricing'); }}
-                className="w-full py-2 border border-terminal-border rounded-lg text-xs text-terminal-text-secondary hover:text-terminal-text-primary hover:border-terminal-cyan/30 transition-colors">
-                View Plans & Pricing
-              </button>
-            </div>
-
           ) : (
-            /* Not logged in — Log In / Sign Up tabs */
             <>
+              {/* ── Tabs ── */}
               <div className="flex border-b border-terminal-border">
                 <button onClick={() => setTab('login')}
                   className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${tab === 'login' ? 'text-terminal-cyan border-b-2 border-terminal-cyan bg-terminal-cyan/5' : 'text-terminal-text-secondary hover:text-terminal-text-primary'}`}>
-                  Log In
+                  {isLoggedIn ? 'My Account' : 'Log In'}
                 </button>
                 <button onClick={() => setTab('signup')}
                   className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${tab === 'signup' ? 'text-terminal-cyan border-b-2 border-terminal-cyan bg-terminal-cyan/5' : 'text-terminal-text-secondary hover:text-terminal-text-primary'}`}>
-                  Create Account
+                  Sign Up
+                </button>
+                <button onClick={() => setTab('admin')}
+                  className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${tab === 'admin' ? 'text-terminal-cyan border-b-2 border-terminal-cyan bg-terminal-cyan/5' : 'text-terminal-text-secondary hover:text-terminal-text-primary'}`}>
+                  Admin
                 </button>
               </div>
+
               <div className="p-4 space-y-3">
-                {tab === 'login' ? (
-                  <>
-                    <p className="text-xs text-terminal-text-secondary">Enter your email to activate your account access.</p>
-                    <form onSubmit={handleLookup} className="space-y-2">
-                      <input type="email" value={lookupEmail} onChange={e => setLookupEmail(e.target.value)}
-                        className="w-full bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2.5 text-sm text-terminal-text-primary placeholder-terminal-text-secondary focus:outline-none focus:border-terminal-cyan/50"
-                        placeholder="your@email.com" required autoFocus />
-                      <button type="submit" disabled={lookupLoading}
-                        className="w-full py-2.5 bg-terminal-cyan text-black text-sm font-bold rounded-lg hover:bg-terminal-cyan/90 disabled:opacity-60 transition-colors">
-                        {lookupLoading ? 'Checking…' : 'Log In'}
+
+                {/* Log In / My Account tab */}
+                {tab === 'login' && (
+                  isLoggedIn ? (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-xs text-terminal-text-secondary">Signed in as</div>
+                          <div className="text-xs font-medium text-terminal-text-primary mt-0.5 truncate max-w-[150px]">{userEmail}</div>
+                          <div className={`text-sm font-bold mt-1 ${
+                            grantedFree ? 'text-terminal-cyan'
+                            : userTier === 'elite' ? 'text-terminal-purple'
+                            : userTier === 'pro' ? 'text-terminal-green'
+                            : 'text-terminal-text-primary'
+                          }`}>{grantedFree ? 'FULL ACCESS' : userTier.toUpperCase()}</div>
+                        </div>
+                        <div className="flex flex-col gap-1.5 items-end">
+                          {userTier === 'free' && !grantedFree && (
+                            <button onClick={() => { setOpen(false); setActiveView('pricing'); }}
+                              className="px-3 py-1.5 bg-terminal-cyan text-black text-xs font-bold rounded-lg hover:bg-terminal-cyan/90">
+                              Upgrade
+                            </button>
+                          )}
+                          <button onClick={handleSignOut} className="text-[11px] text-terminal-text-secondary hover:text-terminal-red transition-colors">Sign out</button>
+                        </div>
+                      </div>
+                      <button onClick={() => { setOpen(false); setActiveView('pricing'); }}
+                        className="w-full py-2 border border-terminal-border rounded-lg text-xs text-terminal-text-secondary hover:text-terminal-text-primary hover:border-terminal-cyan/30 transition-colors">
+                        View Plans & Pricing
                       </button>
-                    </form>
-                    {lookupMsg && <p className={`text-xs ${lookupMsg.startsWith('✓') ? 'text-terminal-green' : 'text-terminal-yellow'}`}>{lookupMsg}</p>}
-                    <button onClick={() => setTab('signup')} className="w-full py-2 text-xs text-terminal-text-secondary hover:text-terminal-text-primary transition-colors">
-                      No account yet? Sign Up →
-                    </button>
-                  </>
-                ) : (
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs text-terminal-text-secondary">Enter your email to activate your account.</p>
+                      <form onSubmit={handleLookup} className="space-y-2">
+                        <input type="email" value={lookupEmail} onChange={e => setLookupEmail(e.target.value)}
+                          className="w-full bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2.5 text-sm text-terminal-text-primary placeholder-terminal-text-secondary focus:outline-none focus:border-terminal-cyan/50"
+                          placeholder="your@email.com" required />
+                        <button type="submit" disabled={lookupLoading}
+                          className="w-full py-2.5 bg-terminal-cyan text-black text-sm font-bold rounded-lg hover:bg-terminal-cyan/90 disabled:opacity-60 transition-colors">
+                          {lookupLoading ? 'Checking…' : 'Log In'}
+                        </button>
+                      </form>
+                      {lookupMsg && <p className={`text-xs ${lookupMsg.startsWith('✓') ? 'text-terminal-green' : 'text-terminal-yellow'}`}>{lookupMsg}</p>}
+                    </>
+                  )
+                )}
+
+                {/* Sign Up tab */}
+                {tab === 'signup' && (
                   <>
                     <p className="text-xs text-terminal-text-secondary">Create a free account. Upgrade to PRO or ELITE anytime.</p>
                     <form onSubmit={handleSignup} className="space-y-2">
                       <input type="email" value={signupEmail} onChange={e => setSignupEmail(e.target.value)}
                         className="w-full bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2.5 text-sm text-terminal-text-primary placeholder-terminal-text-secondary focus:outline-none focus:border-terminal-cyan/50"
-                        placeholder="your@email.com" required autoFocus />
+                        placeholder="your@email.com" required />
                       <button type="submit" disabled={signupLoading}
                         className="w-full py-2.5 bg-terminal-cyan text-black text-sm font-bold rounded-lg hover:bg-terminal-cyan/90 disabled:opacity-60 transition-colors">
                         {signupLoading ? 'Creating…' : 'Create Free Account'}
@@ -325,6 +363,27 @@ function AccountMenu() {
                     </button>
                   </>
                 )}
+
+                {/* Admin tab */}
+                {tab === 'admin' && (
+                  <>
+                    <p className="text-xs text-terminal-text-secondary">Admin access — full portal and all features.</p>
+                    <form onSubmit={handleAdminLogin} className="space-y-2">
+                      <input type="text" value={adminUser} onChange={e => setAdminUser(e.target.value)}
+                        className="w-full bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2.5 text-sm text-terminal-text-primary placeholder-terminal-text-secondary focus:outline-none focus:border-terminal-cyan/50"
+                        placeholder="Username" autoComplete="username" required />
+                      <input type="password" value={adminPass} onChange={e => setAdminPass(e.target.value)}
+                        className="w-full bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2.5 text-sm text-terminal-text-primary placeholder-terminal-text-secondary focus:outline-none focus:border-terminal-cyan/50"
+                        placeholder="Password" autoComplete="current-password" required />
+                      {adminError && <p className="text-xs text-terminal-red">{adminError}</p>}
+                      <button type="submit" disabled={adminLoading}
+                        className="w-full py-2.5 bg-terminal-cyan text-black text-sm font-bold rounded-lg hover:bg-terminal-cyan/90 disabled:opacity-60 transition-colors">
+                        {adminLoading ? 'Signing in…' : 'Sign In as Admin'}
+                      </button>
+                    </form>
+                  </>
+                )}
+
               </div>
             </>
           )}
