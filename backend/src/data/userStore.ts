@@ -48,20 +48,29 @@ const DEFAULT_SETTINGS: SiteSettings = {
 const DATA_DIR  = path.join(process.cwd(), 'data');
 const DATA_FILE = path.join(DATA_DIR, 'users.json');
 
-function ensureDir(): void {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+// Owner email — always seeded with elite access + grantedFree on startup
+const OWNER_EMAIL = process.env.OWNER_EMAIL ?? 'admin@patternpulse.com';
+
+function seedOwner(data: StoreData): void {
+  const existing = data.users.find(u => u.email.toLowerCase() === OWNER_EMAIL.toLowerCase());
+  if (existing) {
+    // Always ensure owner has elite + grantedFree
+    existing.tier = 'elite';
+    existing.grantedFree = true;
+  } else {
+    data.users.unshift({
+      id: 'usr_owner',
+      email: OWNER_EMAIL.toLowerCase(),
+      name: 'Owner',
+      tier: 'elite',
+      grantedFree: true,
+      createdAt: new Date().toISOString(),
+    });
+  }
 }
 
-function loadData(): StoreData {
-  try {
-    ensureDir();
-    if (fs.existsSync(DATA_FILE)) {
-      return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8')) as StoreData;
-    }
-  } catch {
-    log('Warning: userStore load failed, using defaults');
-  }
-  return { users: [], settings: { ...DEFAULT_SETTINGS } };
+function ensureDir(): void {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
 function saveData(data: StoreData): void {
@@ -71,6 +80,24 @@ function saveData(data: StoreData): void {
   } catch {
     log('Warning: userStore save failed');
   }
+}
+
+function loadData(): StoreData {
+  let data: StoreData;
+  try {
+    ensureDir();
+    if (fs.existsSync(DATA_FILE)) {
+      data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8')) as StoreData;
+    } else {
+      data = { users: [], settings: { ...DEFAULT_SETTINGS } };
+    }
+  } catch {
+    log('Warning: userStore load failed, using defaults');
+    data = { users: [], settings: { ...DEFAULT_SETTINGS } };
+  }
+  seedOwner(data);
+  saveData(data);
+  return data;
 }
 
 let _data = loadData();
