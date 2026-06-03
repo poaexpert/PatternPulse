@@ -130,46 +130,28 @@ function AccountMenu() {
   const {
     userTier, userEmail, grantedFree,
     setUserTier, setUserEmail, setGrantedFree,
-    isAdminLoggedIn, setAdminToken, logoutAdmin, setActiveView,
+    isAdminLoggedIn, logoutAdmin, setActiveView,
   } = useStore();
 
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<'account' | 'signup'>('account');
+  const [tab, setTab] = useState<'login' | 'signup'>('login');
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Account lookup (existing users)
   const [lookupEmail, setLookupEmail] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupMsg, setLookupMsg] = useState('');
 
-  // Sign up (new users)
   const [signupEmail, setSignupEmail] = useState('');
   const [signupLoading, setSignupLoading] = useState(false);
   const [signupMsg, setSignupMsg] = useState('');
 
-  // Admin login (always accessible, shown at bottom of dropdown)
-  const [showAdminLogin, setShowAdminLogin] = useState(false);
-  const [adminUser, setAdminUser] = useState('');
-  const [adminPass, setAdminPass] = useState('');
-  const [adminError, setAdminError] = useState('');
-  const [adminLoading, setAdminLoading] = useState(false);
-
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
     }
     if (open) document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
-
-  // 5-tap logo still works as backup
-  useEffect(() => {
-    const handler = () => { setOpen(true); setShowAdminLogin(true); };
-    window.addEventListener('pp-admin-tap', handler);
-    return () => window.removeEventListener('pp-admin-tap', handler);
-  }, []);
 
   const handleLookup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,10 +167,10 @@ function AccountMenu() {
         setGrantedFree(!!found.grantedFree);
         setLookupMsg(`✓ ${(found.tier as string).toUpperCase()} access activated!`);
       } else {
-        setLookupMsg('No account found. Use Sign Up to create one.');
+        setLookupMsg('No account found.');
       }
     } catch {
-      setLookupMsg('No account found. Use Sign Up to create one.');
+      setLookupMsg('No account found.');
     } finally {
       setLookupLoading(false);
     }
@@ -203,35 +185,12 @@ function AccountMenu() {
       await axios.post('/api/admin/users', { email: signupEmail.trim() });
       setUserEmail(signupEmail.trim());
       setUserTier('free');
-      setSignupMsg('✓ Account created! You now have free access.');
+      setSignupMsg('✓ Account created!');
       setSignupEmail('');
     } catch {
-      setSignupMsg('Error creating account. Please try again.');
+      setSignupMsg('Error. Please try again.');
     } finally {
       setSignupLoading(false);
-    }
-  };
-
-  const handleAdminLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAdminError('');
-    setAdminLoading(true);
-    try {
-      const res = await axios.post('/api/admin/login', { username: adminUser, password: adminPass });
-      if (res.data?.success && res.data?.token) {
-        setAdminToken(res.data.token);
-        setOpen(false);
-        setShowAdminLogin(false);
-        setAdminUser('');
-        setAdminPass('');
-        setActiveView('admin');
-      } else {
-        setAdminError('Invalid credentials');
-      }
-    } catch {
-      setAdminError('Invalid credentials');
-    } finally {
-      setAdminLoading(false);
     }
   };
 
@@ -244,19 +203,15 @@ function AccountMenu() {
   };
 
   const isLoggedIn = !!userEmail;
-
   const tierColor = isAdminLoggedIn
     ? 'text-terminal-cyan border-terminal-cyan/30 bg-terminal-cyan/10'
-    : userTier === 'elite'
-    ? 'text-terminal-purple border-terminal-purple/30 bg-terminal-purple/10'
-    : userTier === 'pro'
-    ? 'text-terminal-green border-terminal-green/30 bg-terminal-green/10'
-    : 'text-terminal-text-secondary border-terminal-border bg-terminal-border/20';
+    : userTier === 'elite' ? 'text-terminal-purple border-terminal-purple/30 bg-terminal-purple/10'
+    : userTier === 'pro'   ? 'text-terminal-green  border-terminal-green/30  bg-terminal-green/10'
+    :                        'text-terminal-text-secondary border-terminal-border bg-terminal-border/20';
 
   return (
     <div className="relative" ref={menuRef}>
-      <button
-        onClick={() => setOpen(v => !v)}
+      <button onClick={() => setOpen(v => !v)}
         className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
           open ? 'bg-terminal-card border-terminal-border' : 'hover:bg-terminal-card border-transparent hover:border-terminal-border'
         } ${tierColor}`}
@@ -271,19 +226,18 @@ function AccountMenu() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-16px)] bg-terminal-card border border-terminal-border rounded-xl shadow-2xl z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-16px)] bg-terminal-card border border-terminal-border rounded-xl shadow-2xl z-50 overflow-hidden">
 
-          {/* ── Admin logged in view ── */}
+          {/* Admin view */}
           {isAdminLoggedIn ? (
             <div className="p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <svg className="w-4 h-4 text-terminal-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 <span className="text-sm font-bold text-terminal-cyan">ADMIN — Full Access</span>
               </div>
-              <p className="text-xs text-terminal-text-secondary">All features unlocked. Full site control.</p>
               <button onClick={() => { setOpen(false); setActiveView('admin'); }}
                 className="w-full py-2.5 bg-terminal-cyan text-black text-sm font-bold rounded-lg hover:bg-terminal-cyan/90 transition-colors">
-                Open Admin Dashboard
+                Open Admin Portal
               </button>
               <button onClick={() => { logoutAdmin(); setOpen(false); }}
                 className="w-full py-2 border border-terminal-red/30 text-terminal-red text-xs font-medium rounded-lg hover:bg-terminal-red/10 transition-colors">
@@ -291,86 +245,74 @@ function AccountMenu() {
               </button>
             </div>
 
+          ) : isLoggedIn ? (
+            /* Logged-in user view */
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-terminal-text-secondary">Signed in as</div>
+                  <div className="text-xs font-medium text-terminal-text-primary mt-0.5 truncate max-w-[160px]">{userEmail}</div>
+                  <div className={`text-sm font-bold mt-1 ${
+                    grantedFree ? 'text-terminal-cyan'
+                    : userTier === 'elite' ? 'text-terminal-purple'
+                    : userTier === 'pro' ? 'text-terminal-green'
+                    : 'text-terminal-text-primary'
+                  }`}>{grantedFree ? 'FULL ACCESS' : userTier.toUpperCase()}</div>
+                </div>
+                <div className="flex flex-col gap-1.5 items-end">
+                  {userTier === 'free' && !grantedFree && (
+                    <button onClick={() => { setOpen(false); setActiveView('pricing'); }}
+                      className="px-3 py-1.5 bg-terminal-cyan text-black text-xs font-bold rounded-lg hover:bg-terminal-cyan/90">
+                      Upgrade
+                    </button>
+                  )}
+                  <button onClick={handleSignOut} className="text-[11px] text-terminal-text-secondary hover:text-terminal-red transition-colors">Sign out</button>
+                </div>
+              </div>
+              <button onClick={() => { setOpen(false); setActiveView('pricing'); }}
+                className="w-full py-2 border border-terminal-border rounded-lg text-xs text-terminal-text-secondary hover:text-terminal-text-primary hover:border-terminal-cyan/30 transition-colors">
+                View Plans & Pricing
+              </button>
+            </div>
+
           ) : (
+            /* Not logged in — Log In / Sign Up tabs */
             <>
-              {/* ── Tabs: Log In / Sign Up ── */}
               <div className="flex border-b border-terminal-border">
-                <button onClick={() => setTab('account')}
-                  className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${tab === 'account' ? 'text-terminal-cyan border-b-2 border-terminal-cyan bg-terminal-cyan/5' : 'text-terminal-text-secondary hover:text-terminal-text-primary'}`}>
-                  {isLoggedIn ? 'My Account' : 'Log In'}
+                <button onClick={() => setTab('login')}
+                  className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${tab === 'login' ? 'text-terminal-cyan border-b-2 border-terminal-cyan bg-terminal-cyan/5' : 'text-terminal-text-secondary hover:text-terminal-text-primary'}`}>
+                  Log In
                 </button>
                 <button onClick={() => setTab('signup')}
                   className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${tab === 'signup' ? 'text-terminal-cyan border-b-2 border-terminal-cyan bg-terminal-cyan/5' : 'text-terminal-text-secondary hover:text-terminal-text-primary'}`}>
                   Create Account
                 </button>
               </div>
-
               <div className="p-4 space-y-3">
-                {/* Log In tab */}
-                {tab === 'account' && (
+                {tab === 'login' ? (
                   <>
-                    {isLoggedIn ? (
-                      <>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="text-xs text-terminal-text-secondary">Current Plan</div>
-                            <div className={`text-sm font-bold mt-0.5 ${
-                              grantedFree ? 'text-terminal-cyan'
-                              : userTier === 'elite' ? 'text-terminal-purple'
-                              : userTier === 'pro' ? 'text-terminal-green'
-                              : 'text-terminal-text-primary'
-                            }`}>
-                              {grantedFree ? 'FULL ACCESS' : userTier.toUpperCase()}
-                            </div>
-                            <div className="text-xs text-terminal-text-secondary mt-0.5 truncate max-w-[180px]">{userEmail}</div>
-                          </div>
-                          <div className="flex flex-col gap-1.5 items-end">
-                            {userTier === 'free' && !grantedFree && (
-                              <button onClick={() => { setOpen(false); setActiveView('pricing'); }}
-                                className="px-3 py-1.5 bg-terminal-cyan text-black text-xs font-bold rounded-lg hover:bg-terminal-cyan/90">
-                                Upgrade
-                              </button>
-                            )}
-                            <button onClick={handleSignOut} className="text-[11px] text-terminal-text-secondary hover:text-terminal-red transition-colors">
-                              Sign out
-                            </button>
-                          </div>
-                        </div>
-                        <button onClick={() => { setOpen(false); setActiveView('pricing'); }}
-                          className="w-full py-2 border border-terminal-border rounded-lg text-xs text-terminal-text-secondary hover:text-terminal-text-primary hover:border-terminal-cyan/30 transition-colors">
-                          View Plans & Pricing
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-xs text-terminal-text-secondary">Already have an account? Enter your email to log in.</p>
-                        <form onSubmit={handleLookup} className="space-y-2">
-                          <input type="email" value={lookupEmail} onChange={e => setLookupEmail(e.target.value)}
-                            className="w-full bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2 text-sm text-terminal-text-primary placeholder-terminal-text-secondary focus:outline-none focus:border-terminal-cyan/50"
-                            placeholder="your@email.com" required />
-                          <button type="submit" disabled={lookupLoading}
-                            className="w-full py-2.5 bg-terminal-cyan text-black text-sm font-bold rounded-lg hover:bg-terminal-cyan/90 disabled:opacity-60 transition-colors">
-                            {lookupLoading ? 'Checking…' : 'Log In'}
-                          </button>
-                        </form>
-                        {lookupMsg && <p className={`text-xs ${lookupMsg.startsWith('✓') ? 'text-terminal-green' : 'text-terminal-yellow'}`}>{lookupMsg}</p>}
-                        <button onClick={() => setTab('signup')}
-                          className="w-full py-2 border border-terminal-border rounded-lg text-xs text-terminal-text-secondary hover:text-terminal-text-primary transition-colors">
-                          Don't have an account? Sign Up →
-                        </button>
-                      </>
-                    )}
+                    <p className="text-xs text-terminal-text-secondary">Enter your email to activate your account access.</p>
+                    <form onSubmit={handleLookup} className="space-y-2">
+                      <input type="email" value={lookupEmail} onChange={e => setLookupEmail(e.target.value)}
+                        className="w-full bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2.5 text-sm text-terminal-text-primary placeholder-terminal-text-secondary focus:outline-none focus:border-terminal-cyan/50"
+                        placeholder="your@email.com" required autoFocus />
+                      <button type="submit" disabled={lookupLoading}
+                        className="w-full py-2.5 bg-terminal-cyan text-black text-sm font-bold rounded-lg hover:bg-terminal-cyan/90 disabled:opacity-60 transition-colors">
+                        {lookupLoading ? 'Checking…' : 'Log In'}
+                      </button>
+                    </form>
+                    {lookupMsg && <p className={`text-xs ${lookupMsg.startsWith('✓') ? 'text-terminal-green' : 'text-terminal-yellow'}`}>{lookupMsg}</p>}
+                    <button onClick={() => setTab('signup')} className="w-full py-2 text-xs text-terminal-text-secondary hover:text-terminal-text-primary transition-colors">
+                      No account yet? Sign Up →
+                    </button>
                   </>
-                )}
-
-                {/* Sign Up tab */}
-                {tab === 'signup' && (
+                ) : (
                   <>
-                    <p className="text-xs text-terminal-text-secondary">Create a free account to get started. Upgrade to PRO or ELITE anytime.</p>
+                    <p className="text-xs text-terminal-text-secondary">Create a free account. Upgrade to PRO or ELITE anytime.</p>
                     <form onSubmit={handleSignup} className="space-y-2">
                       <input type="email" value={signupEmail} onChange={e => setSignupEmail(e.target.value)}
-                        className="w-full bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2 text-sm text-terminal-text-primary placeholder-terminal-text-secondary focus:outline-none focus:border-terminal-cyan/50"
-                        placeholder="your@email.com" required />
+                        className="w-full bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2.5 text-sm text-terminal-text-primary placeholder-terminal-text-secondary focus:outline-none focus:border-terminal-cyan/50"
+                        placeholder="your@email.com" required autoFocus />
                       <button type="submit" disabled={signupLoading}
                         className="w-full py-2.5 bg-terminal-cyan text-black text-sm font-bold rounded-lg hover:bg-terminal-cyan/90 disabled:opacity-60 transition-colors">
                         {signupLoading ? 'Creating…' : 'Create Free Account'}
@@ -384,39 +326,6 @@ function AccountMenu() {
                   </>
                 )}
               </div>
-
-              {/* ── Admin login (always accessible) ── */}
-              {!showAdminLogin ? (
-                <div className="border-t border-terminal-border px-4 py-2.5">
-                  <button onClick={() => setShowAdminLogin(true)}
-                    className="text-[11px] text-terminal-text-secondary/50 hover:text-terminal-text-secondary transition-colors">
-                    Admin
-                  </button>
-                </div>
-              ) : (
-                <div className="border-t border-terminal-border p-4 bg-terminal-bg/50">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold text-terminal-cyan uppercase tracking-wide">Admin Login</span>
-                    <button onClick={() => { setShowAdminLogin(false); setAdminError(''); }}
-                      className="text-terminal-text-secondary hover:text-terminal-text-primary transition-colors">
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                    </button>
-                  </div>
-                  <form onSubmit={handleAdminLogin} className="space-y-2">
-                    <input type="text" value={adminUser} onChange={e => setAdminUser(e.target.value)}
-                      className="w-full bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2 text-sm text-terminal-text-primary placeholder-terminal-text-secondary focus:outline-none focus:border-terminal-cyan/50"
-                      placeholder="Username" autoComplete="off" required />
-                    <input type="password" value={adminPass} onChange={e => setAdminPass(e.target.value)}
-                      className="w-full bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2 text-sm text-terminal-text-primary placeholder-terminal-text-secondary focus:outline-none focus:border-terminal-cyan/50"
-                      placeholder="Password" autoComplete="off" required />
-                    {adminError && <p className="text-xs text-terminal-red">{adminError}</p>}
-                    <button type="submit" disabled={adminLoading}
-                      className="w-full py-2 bg-terminal-cyan text-black text-sm font-bold rounded-lg hover:bg-terminal-cyan/90 disabled:opacity-60 transition-colors">
-                      {adminLoading ? 'Signing in…' : 'Sign In as Admin'}
-                    </button>
-                  </form>
-                </div>
-              )}
             </>
           )}
         </div>
