@@ -20,6 +20,11 @@ export interface PatternAnalysis {
   target1?: number;
   target2?: number;
   riskReward?: number;
+  // Volume analysis
+  volumeTrend?: 'INCREASING' | 'DECREASING' | 'STABLE';
+  volumeSignal?: 'CONFIRMING' | 'DIVERGING' | 'NEUTRAL';
+  relativeVolume?: number; // ratio vs average (e.g. 1.5 = 150% of avg)
+  volumeNote?: string;
 }
 
 /**
@@ -413,6 +418,83 @@ function matchPattern(
 }
 
 /**
+ * Extract a volume profile from the bottom ~25% of the image buffer,
+ * where volume bars typically appear on most charting platforms.
+ */
+function extractVolumeProfile(buffer: Buffer, targetCols = 100): number[] {
+  if (buffer.length < 200) return Array.from({ length: targetCols }, () => 0.5);
+  const volumeStart = Math.floor(buffer.length * 0.75);
+  const span = buffer.length - volumeStart;
+  const segSize = Math.max(1, Math.floor(span / targetCols));
+  const line: number[] = [];
+  for (let i = 0; i < targetCols; i++) {
+    let sum = 0, count = 0;
+    const start = volumeStart + i * segSize;
+    const end = Math.min(start + segSize, buffer.length);
+    for (let j = start; j < end; j++) { sum += buffer[j]; count++; }
+    line.push(count > 0 ? sum / count / 255 : 0.5);
+  }
+  const min = Math.min(...line);
+  const max = Math.max(...line);
+  const range = max - min || 1;
+  return line.map(v => (v - min) / range);
+}
+
+/** Derive volume trend, signal, relative volume, and a human-readable note */
+function analyzeVolume(
+  volumeProfile: number[],
+  patternType: PatternAnalysis['patternType'],
+): { volumeTrend: 'INCREASING' | 'DECREASING' | 'STABLE'; volumeSignal: 'CONFIRMING' | 'DIVERGING' | 'NEUTRAL'; relativeVolume: number; volumeNote: string } {
+  const n = volumeProfile.length;
+  const half = Math.floor(n / 2);
+  const avgFirst  = volumeProfile.slice(0, half).reduce((a, b) => a + b, 0) / half;
+  const avgSecond = volumeProfile.slice(half).reduce((a, b) => a + b, 0) / (n - half);
+  const avgTotal  = volumeProfile.reduce((a, b) => a + b, 0) / n;
+  const recentSlice = volumeProfile.slice(Math.floor(n * 0.8));
+  const avgRecent = recentSlice.reduce((a, b) => a + b, 0) / recentSlice.length;
+  const relativeVolume = Math.round((avgRecent / Math.max(avgTotal, 0.01)) * 100) / 100;
+
+  const volumeTrend: 'INCREASING' | 'DECREASING' | 'STABLE' =
+    avgSecond > avgFirst * 1.1 ? 'INCREASING' :
+    avgSecond < avgFirst * 0.9 ? 'DECREASING' : 'STABLE';
+
+  let volumeSignal: 'CONFIRMING' | 'DIVERGING' | 'NEUTRAL';
+  let volumeNote: string;
+
+  const isBull = patternType === 'BULLISH_REVERSAL' || patternType === 'CONTINUATION_BULLISH';
+  const isBear = patternType === 'BEARISH_REVERSAL' || patternType === 'CONTINUATION_BEARISH';
+
+  if (isBull) {
+    if (volumeTrend === 'INCREASING' && relativeVolume >= 1.1) {
+      volumeSignal = 'CONFIRMING';
+      volumeNote = 'Volume expanding with price action — institutional accumulation likely. Strong breakout fuel available.';
+    } else if (volumeTrend === 'DECREASING') {
+      volumeSignal = 'DIVERGING';
+      volumeNote = 'Volume contracting on potential breakout. Wait for volume surge before committing to full position size.';
+    } else {
+      volumeSignal = 'NEUTRAL';
+      volumeNote = 'Volume at average levels. Watch for expansion on the breakout candle to confirm institutional interest.';
+    }
+  } else if (isBear) {
+    if (volumeTrend === 'INCREASING' && relativeVolume >= 1.1) {
+      volumeSignal = 'CONFIRMING';
+      volumeNote = 'Volume rising on bearish pattern — distribution and selling pressure confirmed. High conviction setup.';
+    } else if (volumeTrend === 'DECREASING') {
+      volumeSignal = 'DIVERGING';
+      volumeNote = 'Volume declining — bearish pattern may lack conviction. Require volume confirmation on breakdown before entry.';
+    } else {
+      volumeSignal = 'NEUTRAL';
+      volumeNote = 'Volume near average. Increasing volume on breakdown below key level would strengthen the bearish case.';
+    }
+  } else {
+    volumeSignal = 'NEUTRAL';
+    volumeNote = 'Volume consolidating alongside price. A surge in volume will indicate the direction of the next breakout.';
+  }
+
+  return { volumeTrend, volumeSignal, relativeVolume, volumeNote };
+}
+
+/**
  * Main entry point: analyze a chart image buffer.
  * @param imageBuffer Raw image file buffer (PNG/JPG)
  * @param contextSymbol Optional symbol for context
@@ -423,6 +505,8 @@ export async function analyzeChartImage(
   contextSymbol?: string,
   currentPrice?: number
 ): Promise<PatternAnalysis> {
+  const volumeProfile = extractVolumeProfile(imageBuffer, 100);
+
   // Extract price line from image
   // Since we don't have sharp, use the synthetic line extractor
   const priceLine = smooth(syntheticPriceLine(imageBuffer, 200), 5);
@@ -488,6 +572,8 @@ export async function analyzeChartImage(
     }
   }
 
+  const { volumeTrend, volumeSignal, relativeVolume, volumeNote } = analyzeVolume(volumeProfile, baseResult.patternType);
+
   return {
     ...baseResult,
     support,
@@ -497,5 +583,9 @@ export async function analyzeChartImage(
     target1,
     target2,
     riskReward,
+    volumeTrend,
+    volumeSignal,
+    relativeVolume,
+    volumeNote,
   };
 }

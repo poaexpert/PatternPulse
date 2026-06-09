@@ -17,6 +17,10 @@ interface PatternAnalysis {
   target1?: number;
   target2?: number;
   riskReward?: number;
+  volumeTrend?: 'INCREASING' | 'DECREASING' | 'STABLE';
+  volumeSignal?: 'CONFIRMING' | 'DIVERGING' | 'NEUTRAL';
+  relativeVolume?: number;
+  volumeNote?: string;
 }
 
 // ASCII diagram map for each pattern
@@ -280,6 +284,57 @@ export default function ChartPatternScanner() {
                 <span>100%</span>
               </div>
             </div>
+
+            {/* Volume Analysis */}
+            {analysis.volumeSignal && (
+              <div className="bg-terminal-card border border-terminal-border rounded-xl p-4">
+                <p className="text-[10px] font-bold text-terminal-text-secondary uppercase tracking-widest mb-3">Volume Analysis</p>
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  <div className="bg-terminal-bg rounded-lg p-2.5 text-center">
+                    <p className="text-[10px] text-terminal-text-secondary mb-0.5">Signal</p>
+                    <p className={`text-xs font-bold ${
+                      analysis.volumeSignal === 'CONFIRMING' ? 'text-terminal-green' :
+                      analysis.volumeSignal === 'DIVERGING' ? 'text-terminal-red' : 'text-terminal-text-secondary'
+                    }`}>{analysis.volumeSignal}</p>
+                  </div>
+                  <div className="bg-terminal-bg rounded-lg p-2.5 text-center">
+                    <p className="text-[10px] text-terminal-text-secondary mb-0.5">Vol Trend</p>
+                    <p className={`text-xs font-bold ${
+                      analysis.volumeTrend === 'INCREASING' ? 'text-terminal-green' :
+                      analysis.volumeTrend === 'DECREASING' ? 'text-terminal-red' : 'text-terminal-text-secondary'
+                    }`}>
+                      {analysis.volumeTrend === 'INCREASING' ? '▲ RISING' :
+                       analysis.volumeTrend === 'DECREASING' ? '▼ FALLING' : '— STABLE'}
+                    </p>
+                  </div>
+                  <div className="bg-terminal-bg rounded-lg p-2.5 text-center">
+                    <p className="text-[10px] text-terminal-text-secondary mb-0.5">Rel. Volume</p>
+                    <p className={`text-xs font-bold tabular-nums ${
+                      (analysis.relativeVolume ?? 1) >= 1.5 ? 'text-terminal-green' :
+                      (analysis.relativeVolume ?? 1) < 0.8 ? 'text-terminal-red' : 'text-terminal-text-primary'
+                    }`}>{analysis.relativeVolume != null ? `${analysis.relativeVolume.toFixed(2)}x` : '—'}</p>
+                    <p className="text-[9px] text-terminal-text-secondary/50">vs avg</p>
+                  </div>
+                </div>
+                {/* Volume confirmation bar */}
+                <div className="mb-2">
+                  <div className="flex justify-between text-[9px] text-terminal-text-secondary mb-1">
+                    <span>Volume Strength</span>
+                    <span>{analysis.relativeVolume != null ? `${Math.min(Math.round(analysis.relativeVolume * 50), 100)}%` : '—'}</span>
+                  </div>
+                  <div className="h-1.5 bg-terminal-border rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${
+                        analysis.volumeSignal === 'CONFIRMING' ? 'bg-terminal-green' :
+                        analysis.volumeSignal === 'DIVERGING' ? 'bg-terminal-red' : 'bg-terminal-yellow'
+                      }`}
+                      style={{ width: `${Math.min(Math.round((analysis.relativeVolume ?? 1) * 50), 100)}%` }}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-terminal-text-secondary leading-relaxed">{analysis.volumeNote}</p>
+              </div>
+            )}
 
             {/* Description */}
             <div className="bg-terminal-card border border-terminal-border rounded-xl p-4">
